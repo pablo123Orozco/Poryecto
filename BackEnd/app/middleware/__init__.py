@@ -1,0 +1,1 @@
+"""Funciones intermedias ejecutadas alrededor de cada solicitud."""
