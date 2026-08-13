@@ -28,6 +28,9 @@ function AssetsPage() {
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [changingStatusId, setChangingStatusId] =
+    useState(null)
 
   useEffect(() => {
     const loadData = async () => {
@@ -69,38 +72,133 @@ function AssetsPage() {
       return
     }
 
+    const assetData = {
+      nombre: formData.nombre.trim(),
+      tipo_activo_id: Number(
+        formData.tipo_activo_id,
+      ),
+      criticidad: formData.criticidad,
+      codigo_interno:
+        formData.codigo_interno.trim() || null,
+      direccion_ip:
+        formData.direccion_ip.trim() || null,
+      descripcion:
+        formData.descripcion.trim() || null,
+    }
+
     setMessage('')
     setIsSaving(true)
 
     try {
-      const newAsset = await apiRequest('/activos', {
-        method: 'POST',
-        body: JSON.stringify({
-          nombre: formData.nombre.trim(),
-          tipo_activo_id: Number(
-            formData.tipo_activo_id,
-          ),
-          criticidad: formData.criticidad,
-          codigo_interno:
-            formData.codigo_interno.trim() || null,
-          direccion_ip:
-            formData.direccion_ip.trim() || null,
-          descripcion:
-            formData.descripcion.trim() || null,
-        }),
-      })
+      if (editingId) {
+        const updatedAsset = await apiRequest(
+          `/activos/${editingId}`,
+          {
+            method: 'PATCH',
+            body: JSON.stringify(assetData),
+          },
+        )
 
-      setAssets((previousAssets) => [
-        ...previousAssets,
-        newAsset,
-      ])
+        setAssets((previousAssets) =>
+          previousAssets.map((asset) =>
+            asset.id === editingId
+              ? updatedAsset
+              : asset,
+          ),
+        )
+
+        setMessage(
+          'Activo actualizado correctamente.',
+        )
+      } else {
+        const newAsset = await apiRequest('/activos', {
+          method: 'POST',
+          body: JSON.stringify(assetData),
+        })
+
+        setAssets((previousAssets) => [
+          ...previousAssets,
+          newAsset,
+        ])
+
+        setMessage(
+          'Activo registrado correctamente.',
+        )
+      }
 
       setFormData(initialForm)
-      setMessage('Activo registrado correctamente.')
+      setEditingId(null)
     } catch (error) {
       setMessage(error.message)
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleEdit = (asset) => {
+    setEditingId(asset.id)
+
+    setFormData({
+      nombre: asset.nombre,
+      tipo_activo_id: String(
+        asset.tipo_activo_id,
+      ),
+      criticidad: asset.criticidad,
+      codigo_interno:
+        asset.codigo_interno ?? '',
+      direccion_ip:
+        asset.direccion_ip ?? '',
+      descripcion:
+        asset.descripcion ?? '',
+    })
+
+    setMessage('')
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    })
+  }
+
+  const handleCancelEdit = () => {
+    setEditingId(null)
+    setFormData(initialForm)
+    setMessage('')
+  }
+
+  const handleStatusChange = async (
+    assetId,
+    newStatus,
+  ) => {
+    setMessage('')
+    setChangingStatusId(assetId)
+
+    try {
+      const updatedAsset = await apiRequest(
+        `/activos/${assetId}/estado`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            estado: newStatus,
+          }),
+        },
+      )
+
+      setAssets((previousAssets) =>
+        previousAssets.map((asset) =>
+          asset.id === assetId
+            ? updatedAsset
+            : asset,
+        ),
+      )
+
+      setMessage(
+        'Estado del activo actualizado correctamente.',
+      )
+    } catch (error) {
+      setMessage(error.message)
+    } finally {
+      setChangingStatusId(null)
     }
   }
 
@@ -120,8 +218,8 @@ function AssetsPage() {
           <h1>Gestión de activos</h1>
 
           <p>
-            Registra y consulta los recursos tecnológicos
-            de la organización.
+            Registra, consulta y actualiza los recursos
+            tecnológicos de la organización.
           </p>
         </div>
 
@@ -137,8 +235,17 @@ function AssetsPage() {
       <section className="assets-content">
         <article className="asset-form-panel">
           <div className="panel-title">
-            <span>Nuevo registro</span>
-            <h2>Registrar activo tecnológico</h2>
+            <span>
+              {editingId
+                ? 'Actualización'
+                : 'Nuevo registro'}
+            </span>
+
+            <h2>
+              {editingId
+                ? 'Editar activo tecnológico'
+                : 'Registrar activo tecnológico'}
+            </h2>
 
             <p>
               Los campos marcados con un asterisco son
@@ -277,9 +384,22 @@ function AssetsPage() {
               disabled={isSaving}
             >
               {isSaving
-                ? 'Registrando...'
-                : 'Registrar activo'}
+                ? 'Guardando...'
+                : editingId
+                  ? 'Guardar cambios'
+                  : 'Registrar activo'}
             </button>
+
+            {editingId && (
+              <button
+                className="back-button"
+                type="button"
+                onClick={handleCancelEdit}
+                disabled={isSaving}
+              >
+                Cancelar edición
+              </button>
+            )}
           </form>
         </article>
 
@@ -299,13 +419,15 @@ function AssetsPage() {
             </div>
           ) : assets.length === 0 ? (
             <div className="assets-empty-state">
-              <div className="assets-empty-icon">0</div>
+              <div className="assets-empty-icon">
+                0
+              </div>
 
               <h3>No existen activos registrados</h3>
 
               <p>
-                Completa el formulario para agregar el primer
-                activo tecnológico de la organización.
+                Completa el formulario para agregar el
+                primer activo tecnológico.
               </p>
             </div>
           ) : (
@@ -334,28 +456,62 @@ function AssetsPage() {
                     >
                       {criticidadLabels[
                         asset.criticidad
-                      ]}
+                      ] ?? asset.criticidad}
                     </span>
                   </div>
 
                   <dl className="asset-details">
                     <div>
                       <dt>Código interno</dt>
+
                       <dd>
-                        {asset.codigo_interno ?? 'Sin código'}
+                        {asset.codigo_interno ??
+                          'Sin código'}
                       </dd>
                     </div>
 
                     <div>
                       <dt>Dirección IP</dt>
+
                       <dd>
-                        {asset.direccion_ip ?? 'Sin dirección'}
+                        {asset.direccion_ip ??
+                          'Sin dirección'}
                       </dd>
                     </div>
 
                     <div>
                       <dt>Estado</dt>
-                      <dd>{asset.estado}</dd>
+
+                      <dd>
+                        <select
+                          value={asset.estado}
+                          disabled={
+                            changingStatusId === asset.id
+                          }
+                          onChange={(event) =>
+                            handleStatusChange(
+                              asset.id,
+                              event.target.value,
+                            )
+                          }
+                        >
+                          <option value="activo">
+                            Activo
+                          </option>
+
+                          <option value="inactivo">
+                            Inactivo
+                          </option>
+
+                          <option value="mantenimiento">
+                            Mantenimiento
+                          </option>
+
+                          <option value="retirado">
+                            Retirado
+                          </option>
+                        </select>
+                      </dd>
                     </div>
                   </dl>
 
@@ -364,6 +520,14 @@ function AssetsPage() {
                       {asset.descripcion}
                     </p>
                   )}
+
+                  <button
+                    className="edit-asset-button"
+                    type="button"
+                    onClick={() => handleEdit(asset)}
+                  >
+                    Editar activo
+                  </button>
                 </article>
               ))}
             </div>

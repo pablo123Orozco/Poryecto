@@ -9,6 +9,13 @@ import {
 import LoginPage from './ventanas/login.jsx'
 import DashboardPage from './ventanas/dashboard.jsx'
 import AssetsPage from './ventanas/activos.jsx'
+import AlertsPage from './ventanas/alertas.jsx'
+import IncidentsPage from './ventanas/incidentes.jsx'
+import MaintenancePage from './ventanas/mantenimientos.jsx'
+import ReportsPage from './ventanas/reportes.jsx'
+import PlansPage from './ventanas/planes.jsx'
+import UsersPage from './ventanas/usuarios.jsx'
+import SitesPage from './ventanas/sedes.jsx'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -28,6 +35,12 @@ function App() {
     navigate('/login')
   }
 
+  const protectedPage = (page) => (
+    isAuthenticated
+      ? page
+      : <Navigate to="/login" replace />
+  )
+
   return (
     <Routes>
       <Route
@@ -43,49 +56,54 @@ function App() {
 
       <Route
         path="/dashboard"
-        element={
-          isAuthenticated ? (
-            <DashboardPage onLogout={handleLogout} />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
+        element={protectedPage(
+          <DashboardPage onLogout={handleLogout} />,
+        )}
       />
 
       <Route
         path="/activos"
-        element={
-          isAuthenticated ? (
-            <AssetsPage />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        }
+        element={protectedPage(<AssetsPage />)}
       />
 
       <Route
-        path="/"
-        element={
-          <Navigate
-            to={
-              isAuthenticated
-                ? '/dashboard'
-                : '/login'
-            }
-            replace
-          />
-        }
+        path="/alertas"
+        element={protectedPage(<AlertsPage />)}
+      />
+
+      <Route
+        path="/incidentes"
+        element={protectedPage(<IncidentsPage />)}
+      />
+
+      <Route
+        path="/mantenimientos"
+        element={protectedPage(<MaintenancePage />)}
+      />
+
+      <Route
+        path="/reportes"
+        element={protectedPage(<ReportsPage />)}
+      />
+
+      <Route
+        path="/planes"
+        element={protectedPage(<PlansPage />)}
+      />
+      <Route
+       path="/usuarios"
+      element={protectedPage(<UsersPage />)}
+      />
+      <Route
+        path="/sedes"
+        element={protectedPage(<SitesPage />)}
       />
 
       <Route
         path="*"
         element={
           <Navigate
-            to={
-              isAuthenticated
-                ? '/dashboard'
-                : '/login'
-            }
+            to={isAuthenticated ? '/dashboard' : '/login'}
             replace
           />
         }

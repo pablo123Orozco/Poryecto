@@ -129,6 +129,7 @@ function DashboardPage({ onLogout }) {
             <button
               className="navigation-item"
               type="button"
+              onClick={() => navigate('/alertas')}
             >
               Alertas
             </button>
@@ -136,6 +137,7 @@ function DashboardPage({ onLogout }) {
             <button
               className="navigation-item"
               type="button"
+              onClick={() => navigate('/incidentes')}
             >
               Incidentes
             </button>
@@ -143,6 +145,7 @@ function DashboardPage({ onLogout }) {
             <button
               className="navigation-item"
               type="button"
+              onClick={() => navigate('/mantenimientos')}
             >
               Mantenimientos
             </button>
@@ -150,6 +153,7 @@ function DashboardPage({ onLogout }) {
             <button
               className="navigation-item"
               type="button"
+              onClick={() => navigate('/reportes')}
             >
               Reportes
             </button>
@@ -157,8 +161,23 @@ function DashboardPage({ onLogout }) {
             <button
               className="navigation-item"
               type="button"
+              onClick={() => navigate('/planes')}
             >
               Planes y suscripción
+            </button>
+            <button
+              className="navigation-item"
+              type="button"
+              onClick={() => navigate('/usuarios')}
+            >
+              Usuarios
+            </button>
+            <button
+              className="navigation-item"
+               type="button"
+              onClick={() => navigate('/sedes')}
+            >
+            Sedes
             </button>
           </nav>
         </div>
