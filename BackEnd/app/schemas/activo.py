@@ -116,6 +116,24 @@ class ActivoUpdate(BaseModel):
             return None
         return value.strip() or None
 
+class ZabbixHostUpdate(BaseModel):
+    """Host de Zabbix asociado al activo."""
+
+    zabbix_host_id: str | None = Field(
+        default=None,
+        max_length=100,
+    )
+
+    @field_validator("zabbix_host_id")
+    @classmethod
+    def limpiar_zabbix_host_id(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        return value.strip() or None
 
 class EstadoActivoUpdate(BaseModel):
     estado: EstadoActivo
@@ -132,6 +150,9 @@ class ActivoResponse(BaseModel):
     codigo_interno: str | None
     direccion_ip: IPvAnyAddress | None
     nombre_host: str | None
+    nombre_host: str | None
+    zabbix_host_id: str | None
+    sistema_operativo: str | None
     sistema_operativo: str | None
     fabricante: str | None
     modelo: str | None

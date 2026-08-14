@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { apiRequest } from '../servicios/api.js'
+import Notificacion from '../componentes/Notificacion.jsx'
 import './activos.css'
 
 const initialForm = {
@@ -14,15 +15,27 @@ function SitesPage() {
   const navigate = useNavigate()
 
   const [sites, setSites] = useState([])
-  const [currentUser, setCurrentUser] = useState(null)
-  const [formData, setFormData] = useState(initialForm)
+  const [currentUser, setCurrentUser] =
+    useState(null)
+  const [formData, setFormData] =
+    useState(initialForm)
   const [editingId, setEditingId] = useState(null)
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] =
+    useState('exito')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
 
   const isAdmin =
     currentUser?.rol === 'ADMIN_EMPRESA'
+
+  const mostrarMensaje = (
+    texto,
+    tipo = 'exito',
+  ) => {
+    setMessageType(tipo)
+    setMessage(texto)
+  }
 
   const loadData = async () => {
     try {
@@ -37,7 +50,7 @@ function SitesPage() {
       setSites(sitesResponse)
       setCurrentUser(userResponse)
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setIsLoading(false)
     }
@@ -68,7 +81,10 @@ function SitesPage() {
       !formData.nombre.trim() ||
       !formData.pais.trim()
     ) {
-      setMessage('Completa el nombre y el país.')
+      mostrarMensaje(
+        'Completa el nombre y el país.',
+        'error',
+      )
       return
     }
 
@@ -90,20 +106,24 @@ function SitesPage() {
           body: JSON.stringify(data),
         })
 
-        setMessage('Sede actualizada correctamente.')
+        mostrarMensaje(
+          'Sede actualizada correctamente.',
+        )
       } else {
         await apiRequest('/sedes', {
           method: 'POST',
           body: JSON.stringify(data),
         })
 
-        setMessage('Sede registrada correctamente.')
+        mostrarMensaje(
+          'Sede registrada correctamente.',
+        )
       }
 
       resetForm()
       await loadData()
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setIsSaving(false)
     }
@@ -120,7 +140,11 @@ function SitesPage() {
     })
 
     setMessage('')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    })
   }
 
   const deactivateSite = async (site) => {
@@ -142,18 +166,28 @@ function SitesPage() {
         },
       )
 
-      setMessage('Sede desactivada correctamente.')
+      mostrarMensaje(
+        'Sede desactivada correctamente.',
+      )
+
       await loadData()
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     }
   }
 
   return (
     <main className="assets-page">
+      <Notificacion
+        mensaje={message}
+        tipo={messageType}
+        alCerrar={() => setMessage('')}
+      />
+
       <header className="assets-header">
         <div>
           <span>Organización</span>
+
           <h1>Gestión de sedes</h1>
 
           <p>
@@ -165,10 +199,10 @@ function SitesPage() {
         <button
           className="back-button"
           type="button"
+          aria-label="Volver al dashboard"
+          title="Volver al dashboard"
           onClick={() => navigate('/dashboard')}
-        >
-          Volver al dashboard
-        </button>
+        ></button>
       </header>
 
       <section className="assets-content">
@@ -227,7 +261,9 @@ function SitesPage() {
               </div>
 
               <div className="form-field">
-                <label htmlFor="ciudad">Ciudad</label>
+                <label htmlFor="ciudad">
+                  Ciudad
+                </label>
 
                 <input
                   id="ciudad"
@@ -283,21 +319,22 @@ function SitesPage() {
         <article className="asset-list-panel">
           <div className="panel-title">
             <span>Ubicaciones</span>
+
             <h2>Sedes registradas</h2>
 
             <p>Total de sedes: {sites.length}</p>
           </div>
 
-          {message && (
-            <p className="asset-message" role="alert">
-              {message}
-            </p>
-          )}
-
           {isLoading ? (
-            <p>Cargando sedes...</p>
+            <div className="assets-empty-state">
+              <h3>Cargando sedes...</h3>
+            </div>
           ) : sites.length === 0 ? (
             <div className="assets-empty-state">
+              <div className="assets-empty-icon">
+                0
+              </div>
+
               <h3>No existen sedes registradas</h3>
             </div>
           ) : (
@@ -316,7 +353,16 @@ function SitesPage() {
                       <h3>{site.nombre}</h3>
                     </div>
 
-                    <span className="criticality-badge">
+                    <span
+                      className={
+                        `criticality-badge ` +
+                        `site-status-${
+                          site.activa
+                            ? 'activa'
+                            : 'inactiva'
+                        }`
+                      }
+                    >
                       {site.activa
                         ? 'Activa'
                         : 'Inactiva'}
@@ -326,6 +372,7 @@ function SitesPage() {
                   <dl className="asset-details">
                     <div>
                       <dt>Dirección</dt>
+
                       <dd>
                         {site.direccion ||
                           'No registrada'}
@@ -334,6 +381,7 @@ function SitesPage() {
 
                     <div>
                       <dt>Ciudad</dt>
+
                       <dd>
                         {site.ciudad ||
                           'No registrada'}
@@ -342,12 +390,13 @@ function SitesPage() {
 
                     <div>
                       <dt>País</dt>
+
                       <dd>{site.pais}</dd>
                     </div>
                   </dl>
 
                   {isAdmin && site.activa && (
-                    <>
+                    <div className="asset-actions">
                       <button
                         className="back-button"
                         type="button"
@@ -367,7 +416,7 @@ function SitesPage() {
                       >
                         Desactivar
                       </button>
-                    </>
+                    </div>
                   )}
                 </article>
               ))}

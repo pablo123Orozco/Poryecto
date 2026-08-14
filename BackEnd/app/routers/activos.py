@@ -18,24 +18,40 @@ from app.schemas.activo import (
     ActivoUpdate,
     EstadoActivoUpdate,
     TipoActivoResponse,
+    ZabbixHostUpdate,
+)
+from app.services.zabbix import (
+    ZabbixError,
+    obtener_host_zabbix,
 )
 
 
-router = APIRouter(prefix="/activos", tags=["Activos"])
+router = APIRouter(
+    prefix="/activos",
+    tags=["Activos"],
+)
 
-ROLES_GESTORES = {"ADMIN_EMPRESA", "TECNICO"}
+ROLES_GESTORES = {
+    "ADMIN_EMPRESA",
+    "TECNICO",
+}
 
 
 def obtener_gestor_activos(
     usuario: Usuario = Depends(obtener_usuario_actual),
     db: Session = Depends(get_db),
 ) -> Usuario:
+    """Permite modificar activos al administrador y tecnico."""
+
     rol = db.get(Rol, usuario.rol_id)
 
     if rol is None or rol.nombre not in ROLES_GESTORES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Se requiere el rol ADMIN_EMPRESA o TECNICO.",
+            detail=(
+                "Se requiere el rol ADMIN_EMPRESA "
+                "o TECNICO."
+            ),
         )
 
     return usuario
@@ -46,10 +62,13 @@ def obtener_activo_de_la_organizacion(
     usuario: Usuario,
     db: Session,
 ) -> Activo:
+    """Obtiene un activo de la organizacion actual."""
+
     activo = db.scalar(
         select(Activo).where(
             Activo.id == activo_id,
-            Activo.organizacion_id == usuario.organizacion_id,
+            Activo.organizacion_id
+            == usuario.organizacion_id,
         )
     )
 
@@ -68,6 +87,8 @@ def validar_relaciones(
     organizacion_id: int,
     db: Session,
 ) -> None:
+    """Valida el tipo de activo y la sede."""
+
     if (
         tipo_activo_id is not None
         and db.get(TipoActivo, tipo_activo_id) is None
@@ -95,6 +116,8 @@ def validar_relaciones(
 def preparar_datos(
     datos: dict[str, object],
 ) -> dict[str, object]:
+    """Prepara los datos para PostgreSQL."""
+
     direccion_ip = datos.get("direccion_ip")
 
     if direccion_ip is not None:
@@ -111,6 +134,10 @@ def listar_tipos_activo(
     usuario: Usuario = Depends(obtener_usuario_actual),
     db: Session = Depends(get_db),
 ) -> list[TipoActivo]:
+    """Lista los tipos disponibles de activos."""
+
+    del usuario
+
     return list(
         db.scalars(
             select(TipoActivo).order_by(TipoActivo.id)
@@ -128,6 +155,8 @@ def crear_activo(
     gestor: Usuario = Depends(obtener_gestor_activos),
     db: Session = Depends(get_db),
 ) -> Activo:
+    """Registra un activo."""
+
     validar_relaciones(
         tipo_activo_id=datos.tipo_activo_id,
         sede_id=datos.sede_id,
@@ -141,15 +170,20 @@ def crear_activo(
         organizacion_id=gestor.organizacion_id,
         **valores,
     )
+
     db.add(activo)
 
     try:
         db.commit()
     except IntegrityError as error:
         db.rollback()
+
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ya existe un activo con el mismo codigo interno.",
+            detail=(
+                "Ya existe un activo con el mismo "
+                "codigo interno."
+            ),
         ) from error
 
     db.refresh(activo)
@@ -166,10 +200,13 @@ def listar_activos(
     usuario: Usuario = Depends(obtener_usuario_actual),
     db: Session = Depends(get_db),
 ) -> list[Activo]:
+    """Lista los activos de la organizacion."""
+
     consulta = (
         select(Activo)
         .where(
-            Activo.organizacion_id == usuario.organizacion_id
+            Activo.organizacion_id
+            == usuario.organizacion_id
         )
         .order_by(Activo.id)
         .offset(offset)
@@ -188,6 +225,8 @@ def consultar_activo(
     usuario: Usuario = Depends(obtener_usuario_actual),
     db: Session = Depends(get_db),
 ) -> Activo:
+    """Consulta un activo."""
+
     return obtener_activo_de_la_organizacion(
         activo_id,
         usuario,
@@ -205,6 +244,8 @@ def actualizar_activo(
     gestor: Usuario = Depends(obtener_gestor_activos),
     db: Session = Depends(get_db),
 ) -> Activo:
+    """Actualiza un activo."""
+
     activo = obtener_activo_de_la_organizacion(
         activo_id,
         gestor,
@@ -229,9 +270,13 @@ def actualizar_activo(
         db.commit()
     except IntegrityError as error:
         db.rollback()
+
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Ya existe un activo con el mismo codigo interno.",
+            detail=(
+                "Ya existe un activo con el mismo "
+                "codigo interno."
+            ),
         ) from error
 
     db.refresh(activo)
@@ -248,6 +293,8 @@ def cambiar_estado_activo(
     gestor: Usuario = Depends(obtener_gestor_activos),
     db: Session = Depends(get_db),
 ) -> Activo:
+    """Cambia el estado de un activo."""
+
     activo = obtener_activo_de_la_organizacion(
         activo_id,
         gestor,
@@ -255,7 +302,64 @@ def cambiar_estado_activo(
     )
 
     activo.estado = datos.estado
+
     db.commit()
     db.refresh(activo)
 
+    return activo
+
+
+@router.patch(
+    "/{activo_id}/zabbix",
+    response_model=ActivoResponse,
+)
+def asociar_host_zabbix(
+    activo_id: int,
+    datos: ZabbixHostUpdate,
+    gestor: Usuario = Depends(obtener_gestor_activos),
+    db: Session = Depends(get_db),
+) -> Activo:
+    """Asocia o desvincula un host de Zabbix."""
+
+    activo = obtener_activo_de_la_organizacion(
+        activo_id,
+        gestor,
+        db,
+    )
+
+    if datos.zabbix_host_id is not None:
+        try:
+            host = obtener_host_zabbix(
+                datos.zabbix_host_id,
+            )
+        except ZabbixError as error:
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_503_SERVICE_UNAVAILABLE
+                ),
+                detail=str(error),
+            ) from error
+
+        if host is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Host de Zabbix no encontrado.",
+            )
+
+    activo.zabbix_host_id = datos.zabbix_host_id
+
+    try:
+        db.commit()
+    except IntegrityError as error:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "El host de Zabbix ya esta asociado "
+                "con otro activo."
+            ),
+        ) from error
+
+    db.refresh(activo)
     return activo

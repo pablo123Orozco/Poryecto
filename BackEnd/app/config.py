@@ -11,11 +11,24 @@ class Settings(BaseSettings):
     """Carga y valida las variables de entorno del backend."""
 
     app_name: str = "Plataforma de Monitoreo API"
-    app_environment: Literal["development", "test", "production"] = "development"
+    app_environment: Literal[
+        "development",
+        "test",
+        "production",
+    ] = "development"
+
     database_url: str
+
     jwt_secret_key: str = Field(min_length=32)
     jwt_algorithm: Literal["HS256"] = "HS256"
-    access_token_expire_minutes: int = Field(default=30, gt=0, le=1440)
+    access_token_expire_minutes: int = Field(
+        default=30,
+        gt=0,
+        le=1440,
+    )
+
+    zabbix_api_url: str | None = None
+    zabbix_api_token: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",

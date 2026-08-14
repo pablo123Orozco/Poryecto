@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { apiRequest } from '../servicios/api.js'
+import Notificacion from '../componentes/Notificacion.jsx'
 import './activos.css'
 
 const initialForm = {
@@ -16,20 +17,33 @@ function UsersPage() {
   const navigate = useNavigate()
 
   const [users, setUsers] = useState([])
-  const [formData, setFormData] = useState(initialForm)
+  const [formData, setFormData] =
+    useState(initialForm)
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] =
+    useState('exito')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+
+  const mostrarMensaje = (
+    texto,
+    tipo = 'exito',
+  ) => {
+    setMessageType(tipo)
+    setMessage(texto)
+  }
 
   const loadUsers = async () => {
     try {
       setIsLoading(true)
+
       const response = await apiRequest(
         '/usuarios?offset=0&limite=100',
       )
+
       setUsers(response)
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setIsLoading(false)
     }
@@ -57,13 +71,17 @@ function UsersPage() {
       !formData.email.trim() ||
       !formData.password
     ) {
-      setMessage('Completa todos los campos obligatorios.')
+      mostrarMensaje(
+        'Completa todos los campos obligatorios.',
+        'error',
+      )
       return
     }
 
     if (formData.password.length < 12) {
-      setMessage(
+      mostrarMensaje(
         'La contraseña debe contener al menos 12 caracteres.',
+        'error',
       )
       return
     }
@@ -79,23 +97,30 @@ function UsersPage() {
           apellidos: formData.apellidos.trim(),
           email: formData.email.trim(),
           password: formData.password,
-          telefono: formData.telefono.trim() || null,
+          telefono:
+            formData.telefono.trim() || null,
           rol: formData.rol,
         }),
       })
 
       setFormData(initialForm)
-      setMessage('Usuario registrado correctamente.')
+
       await loadUsers()
+
+      mostrarMensaje(
+        'Usuario registrado correctamente.',
+      )
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setIsSaving(false)
     }
   }
 
   const changeUserStatus = async (user) => {
-    const action = user.activo ? 'desactivar' : 'activar'
+    const action = user.activo
+      ? 'desactivar'
+      : 'activar'
 
     if (
       !window.confirm(
@@ -108,25 +133,40 @@ function UsersPage() {
     try {
       setMessage('')
 
-      await apiRequest(`/usuarios/${user.id}/estado`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          activo: !user.activo,
-        }),
-      })
+      await apiRequest(
+        `/usuarios/${user.id}/estado`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            activo: !user.activo,
+          }),
+        },
+      )
 
-      setMessage(`Usuario ${action}do correctamente.`)
       await loadUsers()
+
+      mostrarMensaje(
+        user.activo
+          ? 'Usuario desactivado correctamente.'
+          : 'Usuario activado correctamente.',
+      )
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     }
   }
 
   return (
     <main className="assets-page">
+      <Notificacion
+        mensaje={message}
+        tipo={messageType}
+        alCerrar={() => setMessage('')}
+      />
+
       <header className="assets-header">
         <div>
           <span>Administración</span>
+
           <h1>Gestión de usuarios</h1>
 
           <p>
@@ -138,16 +178,17 @@ function UsersPage() {
         <button
           className="back-button"
           type="button"
+          aria-label="Volver al dashboard"
+          title="Volver al dashboard"
           onClick={() => navigate('/dashboard')}
-        >
-          Volver al dashboard
-        </button>
+        ></button>
       </header>
 
       <section className="assets-content">
         <article className="asset-form-panel">
           <div className="panel-title">
             <span>Nuevo usuario</span>
+
             <h2>Registrar usuario</h2>
 
             <p>
@@ -156,7 +197,10 @@ function UsersPage() {
             </p>
           </div>
 
-          <form className="asset-form" onSubmit={handleSubmit}>
+          <form
+            className="asset-form"
+            onSubmit={handleSubmit}
+          >
             <div className="form-field">
               <label htmlFor="nombres">
                 Nombres <strong>*</strong>
@@ -219,7 +263,9 @@ function UsersPage() {
             </div>
 
             <div className="form-field">
-              <label htmlFor="telefono">Teléfono</label>
+              <label htmlFor="telefono">
+                Teléfono
+              </label>
 
               <input
                 id="telefono"
@@ -243,25 +289,23 @@ function UsersPage() {
                 onChange={handleChange}
                 disabled={isSaving}
               >
-                <option value="TECNICO">Técnico</option>
+                <option value="TECNICO">
+                  Técnico
+                </option>
 
                 <option value="ANALISTA_SEGURIDAD">
                   Analista de seguridad
                 </option>
 
-                <option value="AUDITOR">Auditor</option>
+                <option value="AUDITOR">
+                  Auditor
+                </option>
 
                 <option value="ADMIN_EMPRESA">
                   Administrador de empresa
                 </option>
               </select>
             </div>
-
-            {message && (
-              <p className="asset-message" role="alert">
-                {message}
-              </p>
-            )}
 
             <button
               className="save-asset-button"
@@ -278,62 +322,98 @@ function UsersPage() {
         <article className="asset-list-panel">
           <div className="panel-title">
             <span>Usuarios actuales</span>
+
             <h2>Usuarios registrados</h2>
 
             <p>Total de usuarios: {users.length}</p>
           </div>
 
           {isLoading ? (
-            <p>Cargando usuarios...</p>
+            <div className="assets-empty-state">
+              <h3>Cargando usuarios...</h3>
+            </div>
           ) : users.length === 0 ? (
             <div className="assets-empty-state">
+              <div className="assets-empty-icon">
+                0
+              </div>
+
               <h3>No existen usuarios registrados</h3>
             </div>
           ) : (
             <div className="asset-list">
               {users.map((user) => (
-                <article className="asset-item" key={user.id}>
+                <article
+                  className="asset-item"
+                  key={user.id}
+                >
                   <div className="asset-item-header">
                     <div>
                       <span>{user.rol}</span>
 
                       <h3>
-                        {user.nombres} {user.apellidos}
+                        {user.nombres}{' '}
+                        {user.apellidos}
                       </h3>
                     </div>
 
-                    <span className="criticality-badge">
-                      {user.activo ? 'Activo' : 'Inactivo'}
+                    <span
+                      className={
+                        `criticality-badge ` +
+                        `user-status-${
+                          user.activo
+                            ? 'activo'
+                            : 'inactivo'
+                        }`
+                      }
+                    >
+                      {user.activo
+                        ? 'Activo'
+                        : 'Inactivo'}
                     </span>
                   </div>
 
                   <dl className="asset-details">
                     <div>
                       <dt>Correo</dt>
+
                       <dd>{user.email}</dd>
                     </div>
 
                     <div>
                       <dt>Teléfono</dt>
-                      <dd>{user.telefono || 'No registrado'}</dd>
+
+                      <dd>
+                        {user.telefono ||
+                          'No registrado'}
+                      </dd>
                     </div>
 
                     <div>
                       <dt>Último acceso</dt>
+
                       <dd>
                         {user.ultimo_acceso_en
                           ? new Date(
                               user.ultimo_acceso_en,
-                            ).toLocaleString()
+                            ).toLocaleString(
+                              'es-GT',
+                            )
                           : 'Sin accesos'}
                       </dd>
                     </div>
                   </dl>
 
                   <button
-                    className="delete-asset-button"
+                    className={
+                      user.activo
+                        ? 'delete-asset-button'
+                        : 'activate-user-button'
+                    }
                     type="button"
-                    onClick={() => changeUserStatus(user)}
+                    onClick={() =>
+                      changeUserStatus(user)
+                    }
                   >
                     {user.activo
                       ? 'Desactivar usuario'

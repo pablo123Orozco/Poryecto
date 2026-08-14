@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { apiRequest } from '../servicios/api.js'
+import Notificacion from '../componentes/Notificacion.jsx'
 import './activos.css'
 
 const initialForm = {
@@ -26,16 +27,26 @@ const statusLabels = {
 function MaintenancePage() {
   const navigate = useNavigate()
 
-  const [formData, setFormData] = useState(initialForm)
+  const [formData, setFormData] =
+    useState(initialForm)
   const [maintenance, setMaintenance] = useState([])
   const [assets, setAssets] = useState([])
   const [user, setUser] = useState(null)
   const [message, setMessage] = useState('')
-  const [statusMessage, setStatusMessage] = useState('')
+  const [messageType, setMessageType] =
+    useState('exito')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [changingStatusId, setChangingStatusId] =
     useState(null)
+
+  const mostrarMensaje = (
+    texto,
+    tipo = 'exito',
+  ) => {
+    setMessageType(tipo)
+    setMessage(texto)
+  }
 
   useEffect(() => {
     const loadData = async () => {
@@ -56,6 +67,7 @@ function MaintenancePage() {
         setAssets(assetsResponse)
         setUser(userResponse)
       } catch (error) {
+        setMessageType('error')
         setMessage(error.message)
       } finally {
         setIsLoading(false)
@@ -77,16 +89,21 @@ function MaintenancePage() {
   const handleSubmit = async (event) => {
     event.preventDefault()
 
-    if (!formData.activo_id || !formData.descripcion) {
-      setMessage(
+    if (
+      !formData.activo_id ||
+      !formData.descripcion
+    ) {
+      mostrarMensaje(
         'Selecciona un activo y escribe la descripción.',
+        'error',
       )
       return
     }
 
     if (!user) {
-      setMessage(
+      mostrarMensaje(
         'No fue posible identificar al usuario.',
+        'error',
       )
       return
     }
@@ -126,11 +143,11 @@ function MaintenancePage() {
 
       setFormData(initialForm)
 
-      setMessage(
+      mostrarMensaje(
         'Mantenimiento registrado correctamente.',
       )
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setIsSaving(false)
     }
@@ -140,7 +157,7 @@ function MaintenancePage() {
     maintenanceId,
     newStatus,
   ) => {
-    setStatusMessage('')
+    setMessage('')
     setChangingStatusId(maintenanceId)
 
     try {
@@ -182,11 +199,11 @@ function MaintenancePage() {
         ),
       )
 
-      setStatusMessage(
+      mostrarMensaje(
         'Estado del mantenimiento actualizado correctamente.',
       )
     } catch (error) {
-      setStatusMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setChangingStatusId(null)
     }
@@ -225,7 +242,9 @@ function MaintenancePage() {
       return 'Sin fecha'
     }
 
-    return new Date(dateValue).toLocaleString('es-GT')
+    return new Date(dateValue).toLocaleString(
+      'es-GT',
+    )
   }
 
   const formatCost = (cost) => {
@@ -238,9 +257,16 @@ function MaintenancePage() {
 
   return (
     <main className="assets-page">
+      <Notificacion
+        mensaje={message}
+        tipo={messageType}
+        alCerrar={() => setMessage('')}
+      />
+
       <header className="assets-header">
         <div>
           <span>Control operativo</span>
+
           <h1>Gestión de mantenimientos</h1>
 
           <p>
@@ -252,16 +278,17 @@ function MaintenancePage() {
         <button
           className="back-button"
           type="button"
+          aria-label="Volver al dashboard"
+          title="Volver al dashboard"
           onClick={() => navigate('/dashboard')}
-        >
-          Volver al dashboard
-        </button>
+        ></button>
       </header>
 
       <section className="assets-content">
         <article className="asset-form-panel">
           <div className="panel-title">
             <span>Nuevo mantenimiento</span>
+
             <h2>Programar mantenimiento</h2>
 
             <p>
@@ -372,15 +399,6 @@ function MaintenancePage() {
               />
             </div>
 
-            {message && (
-              <p
-                className="asset-message"
-                role="alert"
-              >
-                {message}
-              </p>
-            )}
-
             <button
               className="save-asset-button"
               type="submit"
@@ -396,21 +414,14 @@ function MaintenancePage() {
         <article className="asset-list-panel">
           <div className="panel-title">
             <span>Mantenimientos registrados</span>
+
             <h2>Seguimiento de mantenimientos</h2>
 
             <p>
-              Total de mantenimientos: {maintenance.length}
+              Total de mantenimientos:{' '}
+              {maintenance.length}
             </p>
           </div>
-
-          {statusMessage && (
-            <p
-              className="asset-message"
-              role="alert"
-            >
-              {statusMessage}
-            </p>
-          )}
 
           {isLoading ? (
             <div className="assets-empty-state">
@@ -450,7 +461,12 @@ function MaintenancePage() {
                       </h3>
                     </div>
 
-                    <span className="criticality-badge">
+                    <span
+                      className={
+                        `criticality-badge ` +
+                        `maintenance-${item.estado}`
+                      }
+                    >
                       {statusLabels[item.estado]}
                     </span>
                   </div>
@@ -476,14 +492,22 @@ function MaintenancePage() {
                         >
                           {getAvailableStatuses(
                             item.estado,
-                          ).map((status) => (
-                            <option
-                              key={status}
-                              value={status}
-                            >
-                              {statusLabels[status]}
-                            </option>
-                          ))}
+                          ).map(
+                            (maintenanceStatus) => (
+                              <option
+                                key={maintenanceStatus}
+                                value={
+                                  maintenanceStatus
+                                }
+                              >
+                                {
+                                  statusLabels[
+                                    maintenanceStatus
+                                  ]
+                                }
+                              </option>
+                            ),
+                          )}
                         </select>
                       </dd>
                     </div>
@@ -500,7 +524,10 @@ function MaintenancePage() {
 
                     <div>
                       <dt>Costo</dt>
-                      <dd>{formatCost(item.costo)}</dd>
+
+                      <dd>
+                        {formatCost(item.costo)}
+                      </dd>
                     </div>
                   </dl>
 

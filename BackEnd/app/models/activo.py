@@ -89,6 +89,7 @@ class Activo(Base):
     codigo_interno: Mapped[str | None] = mapped_column(String(80))
     direccion_ip: Mapped[str | None] = mapped_column(DIRECCION_IP)
     nombre_host: Mapped[str | None] = mapped_column(String(255))
+    zabbix_host_id: Mapped[str | None] = mapped_column(String(100))
     sistema_operativo: Mapped[str | None] = mapped_column(String(150))
     fabricante: Mapped[str | None] = mapped_column(String(100))
     modelo: Mapped[str | None] = mapped_column(String(100))

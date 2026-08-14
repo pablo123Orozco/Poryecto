@@ -1,5 +1,6 @@
 """Punto de entrada de la API."""
-
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -20,12 +21,33 @@ from app.routers.auditoria import router as auditoria_router
 from app.routers.reportes import router as reportes_router
 from app.routers.planes import router as planes_router
 from app.routers.suscripciones import router as suscripciones_router
+from app.routers.zabbix import router as zabbix_router
 from fastapi.middleware.cors import CORSMiddleware
+from app.services.tarea_zabbix import ejecutar_tarea_zabbix
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Inicia y detiene la sincronizacion automatica."""
+
+    tarea = asyncio.create_task(
+        ejecutar_tarea_zabbix()
+    )
+
+    app.state.tarea_zabbix = tarea
+
+    try:
+        yield
+    finally:
+        tarea.cancel()
+
+        with suppress(asyncio.CancelledError):
+            await tarea
 
 app = FastAPI(
     title=settings.app_name,
     version="0.4.0",
     description="API para administrar y monitorear activos tecnologicos.",
+    lifespan=lifespan,
 )
 
 app.middleware("http")(registrar_auditoria)
@@ -53,6 +75,7 @@ app.include_router(auditoria_router, prefix="/api/v1")
 app.include_router(reportes_router, prefix="/api/v1")
 app.include_router(planes_router, prefix="/api/v1")
 app.include_router(suscripciones_router, prefix="/api/v1")
+app.include_router(zabbix_router,prefix="/api/v1")
 
 @app.get("/", tags=["Sistema"])
 def root() -> dict[str, str]:

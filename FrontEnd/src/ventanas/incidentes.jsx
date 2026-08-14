@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { apiRequest } from '../servicios/api.js'
+import Notificacion from '../componentes/Notificacion.jsx'
 import './activos.css'
 
 const initialForm = {
@@ -27,19 +28,29 @@ const statusLabels = {
 function IncidentsPage() {
   const navigate = useNavigate()
 
-  const [formData, setFormData] = useState(initialForm)
+  const [formData, setFormData] =
+    useState(initialForm)
   const [incidents, setIncidents] = useState([])
   const [assets, setAssets] = useState([])
   const [user, setUser] = useState(null)
   const [solutions, setSolutions] = useState({})
   const [message, setMessage] = useState('')
-  const [statusMessage, setStatusMessage] = useState('')
+  const [messageType, setMessageType] =
+    useState('exito')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [changingStatusId, setChangingStatusId] =
     useState(null)
   const [savingSolutionId, setSavingSolutionId] =
     useState(null)
+
+  const mostrarMensaje = (
+    texto,
+    tipo = 'exito',
+  ) => {
+    setMessageType(tipo)
+    setMessage(texto)
+  }
 
   useEffect(() => {
     const loadData = async () => {
@@ -69,6 +80,7 @@ function IncidentsPage() {
           ),
         )
       } catch (error) {
+        setMessageType('error')
         setMessage(error.message)
       } finally {
         setIsLoading(false)
@@ -91,15 +103,17 @@ function IncidentsPage() {
     event.preventDefault()
 
     if (!formData.activo_id || !formData.titulo) {
-      setMessage(
+      mostrarMensaje(
         'Selecciona un activo y escribe el título.',
+        'error',
       )
       return
     }
 
     if (!user) {
-      setMessage(
+      mostrarMensaje(
         'No fue posible identificar al usuario.',
+        'error',
       )
       return
     }
@@ -135,11 +149,11 @@ function IncidentsPage() {
 
       setFormData(initialForm)
 
-      setMessage(
+      mostrarMensaje(
         'Incidente registrado correctamente.',
       )
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setIsSaving(false)
     }
@@ -149,7 +163,7 @@ function IncidentsPage() {
     incidentId,
     newStatus,
   ) => {
-    setStatusMessage('')
+    setMessage('')
     setChangingStatusId(incidentId)
 
     try {
@@ -191,11 +205,11 @@ function IncidentsPage() {
         ),
       )
 
-      setStatusMessage(
+      mostrarMensaje(
         'Estado del incidente actualizado correctamente.',
       )
     } catch (error) {
-      setStatusMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setChangingStatusId(null)
     }
@@ -215,13 +229,14 @@ function IncidentsPage() {
     const solution = solutions[incidentId]?.trim()
 
     if (!solution) {
-      setStatusMessage(
+      mostrarMensaje(
         'Escribe la solución antes de guardarla.',
+        'error',
       )
       return
     }
 
-    setStatusMessage('')
+    setMessage('')
     setSavingSolutionId(incidentId)
 
     try {
@@ -243,11 +258,11 @@ function IncidentsPage() {
         ),
       )
 
-      setStatusMessage(
+      mostrarMensaje(
         'Solución del incidente guardada correctamente.',
       )
     } catch (error) {
-      setStatusMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setSavingSolutionId(null)
     }
@@ -282,14 +297,23 @@ function IncidentsPage() {
       return 'Sin fecha'
     }
 
-    return new Date(dateValue).toLocaleString('es-GT')
+    return new Date(dateValue).toLocaleString(
+      'es-GT',
+    )
   }
 
   return (
     <main className="assets-page">
+      <Notificacion
+        mensaje={message}
+        tipo={messageType}
+        alCerrar={() => setMessage('')}
+      />
+
       <header className="assets-header">
         <div>
           <span>Seguimiento operativo</span>
+
           <h1>Gestión de incidentes</h1>
 
           <p>
@@ -301,16 +325,17 @@ function IncidentsPage() {
         <button
           className="back-button"
           type="button"
+          aria-label="Volver al dashboard"
+          title="Volver al dashboard"
           onClick={() => navigate('/dashboard')}
-        >
-          Volver al dashboard
-        </button>
+        ></button>
       </header>
 
       <section className="assets-content">
         <article className="asset-form-panel">
           <div className="panel-title">
             <span>Nuevo incidente</span>
+
             <h2>Registrar incidente</h2>
 
             <p>
@@ -378,10 +403,21 @@ function IncidentsPage() {
                 onChange={handleChange}
                 disabled={isSaving}
               >
-                <option value="baja">Baja</option>
-                <option value="media">Media</option>
-                <option value="alta">Alta</option>
-                <option value="critica">Crítica</option>
+                <option value="baja">
+                  Baja
+                </option>
+
+                <option value="media">
+                  Media
+                </option>
+
+                <option value="alta">
+                  Alta
+                </option>
+
+                <option value="critica">
+                  Crítica
+                </option>
               </select>
             </div>
 
@@ -401,15 +437,6 @@ function IncidentsPage() {
               />
             </div>
 
-            {message && (
-              <p
-                className="asset-message"
-                role="alert"
-              >
-                {message}
-              </p>
-            )}
-
             <button
               className="save-asset-button"
               type="submit"
@@ -425,21 +452,13 @@ function IncidentsPage() {
         <article className="asset-list-panel">
           <div className="panel-title">
             <span>Incidentes registrados</span>
+
             <h2>Seguimiento de incidentes</h2>
 
             <p>
               Total de incidentes: {incidents.length}
             </p>
           </div>
-
-          {statusMessage && (
-            <p
-              className="asset-message"
-              role="alert"
-            >
-              {statusMessage}
-            </p>
-          )}
 
           {isLoading ? (
             <div className="assets-empty-state">
@@ -468,6 +487,7 @@ function IncidentsPage() {
                   <div className="asset-item-header">
                     <div>
                       <span>{incident.codigo}</span>
+
                       <h3>{incident.titulo}</h3>
                     </div>
 
@@ -479,7 +499,7 @@ function IncidentsPage() {
                     >
                       {priorityLabels[
                         incident.prioridad
-                      ]}
+                      ] ?? incident.prioridad}
                     </span>
                   </div>
 
@@ -501,8 +521,10 @@ function IncidentsPage() {
                         <select
                           value={incident.estado}
                           disabled={
-                            changingStatusId === incident.id ||
-                            incident.estado === 'cerrado'
+                            changingStatusId ===
+                              incident.id ||
+                            incident.estado ===
+                              'cerrado'
                           }
                           onChange={(event) =>
                             handleStatusChange(
@@ -513,12 +535,16 @@ function IncidentsPage() {
                         >
                           {getAvailableStatuses(
                             incident.estado,
-                          ).map((status) => (
+                          ).map((incidentStatus) => (
                             <option
-                              key={status}
-                              value={status}
+                              key={incidentStatus}
+                              value={incidentStatus}
                             >
-                              {statusLabels[status]}
+                              {
+                                statusLabels[
+                                  incidentStatus
+                                ]
+                              }
                             </option>
                           ))}
                         </select>
@@ -565,7 +591,8 @@ function IncidentsPage() {
                         }
                         placeholder="Describe la solución aplicada..."
                         disabled={
-                          savingSolutionId === incident.id
+                          savingSolutionId ===
+                          incident.id
                         }
                       />
 
@@ -573,13 +600,17 @@ function IncidentsPage() {
                         className="edit-asset-button"
                         type="button"
                         disabled={
-                          savingSolutionId === incident.id
+                          savingSolutionId ===
+                          incident.id
                         }
                         onClick={() =>
-                          handleSaveSolution(incident.id)
+                          handleSaveSolution(
+                            incident.id,
+                          )
                         }
                       >
-                        {savingSolutionId === incident.id
+                        {savingSolutionId ===
+                        incident.id
                           ? 'Guardando...'
                           : 'Guardar solución'}
                       </button>

@@ -11,11 +11,42 @@ const initialMetrics = {
   mantenimientos: 0,
 }
 
+const initialInfrastructure = {
+  estado_general: 'sin_datos',
+  total_hosts: 0,
+  saludables: 0,
+  degradados: 0,
+  criticos: 0,
+  sin_conexion: 0,
+  sin_datos: 0,
+  en_mantenimiento: 0,
+  deshabilitados: 0,
+  problemas_abiertos: 0,
+  hosts: [],
+}
+
+const infrastructureStateLabels = {
+  saludable: 'Saludable',
+  degradado: 'Degradado',
+  critico: 'Crítico',
+  sin_conexion: 'Sin conexión',
+  sin_datos: 'Sin datos',
+  mantenimiento: 'En mantenimiento',
+  deshabilitado: 'Deshabilitado',
+}
+
 function DashboardPage({ onLogout }) {
   const navigate = useNavigate()
 
   const [user, setUser] = useState(null)
   const [metrics, setMetrics] = useState(initialMetrics)
+  const [infrastructure, setInfrastructure] = useState(
+    initialInfrastructure,
+  )
+  const [infrastructureLoading, setInfrastructureLoading] =
+    useState(true)
+  const [infrastructureMessage, setInfrastructureMessage] =
+    useState('')
   const [message, setMessage] = useState('')
 
   useEffect(() => {
@@ -70,6 +101,18 @@ function DashboardPage({ onLogout }) {
       } catch (error) {
         setMessage(error.message)
       }
+
+      try {
+        const infrastructureResponse = await apiRequest(
+          '/zabbix/infraestructura',
+        )
+
+        setInfrastructure(infrastructureResponse)
+      } catch (error) {
+        setInfrastructureMessage(error.message)
+      } finally {
+        setInfrastructureLoading(false)
+      }
     }
 
     loadDashboard()
@@ -96,6 +139,11 @@ function DashboardPage({ onLogout }) {
 
     return roles[user?.rol] ?? 'Usuario'
   }
+
+  const getInfrastructureStateLabel = () =>
+    infrastructureStateLabels[
+      infrastructure.estado_general
+    ] ?? 'Sin datos'
 
   return (
     <div className="dashboard-layout">
@@ -179,6 +227,13 @@ function DashboardPage({ onLogout }) {
             >
             Sedes
             </button>
+            <button
+              className="navigation-item"
+               type="button"
+              onClick={() => navigate('/metricas')}
+            >
+            Métricas
+            </button>
           </nav>
         </div>
 
@@ -225,28 +280,132 @@ function DashboardPage({ onLogout }) {
         </header>
 
         <section className="metrics-grid">
-          <article className="metric-card">
+          <button
+            className="metric-card"
+            type="button"
+            title="Ir a activos tecnológicos"
+            onClick={() => navigate('/activos')}
+          >
             <span>Activos registrados</span>
             <strong>{metrics.activos}</strong>
-            <p>Equipos, sistemas y recursos</p>
-          </article>
+              <p>Equipos, sistemas y recursos</p>
+            </button>
 
-          <article className="metric-card">
+          <button
+          className="metric-card"
+          type="button"
+          title="Ir a alertas"
+          onClick={() => navigate('/alertas')}
+          >
             <span>Alertas activas</span>
             <strong>{metrics.alertas}</strong>
             <p>Requieren revisión o seguimiento</p>
-          </article>
+          </button>
 
-          <article className="metric-card critical">
+          <button
+            className="metric-card critical"
+            type="button"
+            title="Ir a incidentes"
+            onClick={() => navigate('/incidentes')}
+          >
             <span>Incidentes abiertos</span>
             <strong>{metrics.incidentes}</strong>
             <p>Abiertos o en investigación</p>
-          </article>
+          </button>
 
-          <article className="metric-card">
+          <button
+            className="metric-card"
+            type="button"
+            title="Ir a mantenimientos"
+            onClick={() => navigate('/mantenimientos')}
+          >
             <span>Mantenimientos pendientes</span>
             <strong>{metrics.mantenimientos}</strong>
             <p>Programados o en proceso</p>
+          </button>
+        </section>
+
+        <section className="infrastructure-section">
+          <article className="dashboard-panel infrastructure-panel">
+            <div className="panel-header infrastructure-header">
+              <div>
+                <span>Monitoreo con Zabbix</span>
+                <h2>Estado de la infraestructura</h2>
+              </div>
+
+              {!infrastructureLoading &&
+                !infrastructureMessage && (
+                  <span
+                    className={`infrastructure-status ${infrastructure.estado_general}`}
+                  >
+                    {getInfrastructureStateLabel()}
+                  </span>
+                )}
+            </div>
+
+            {infrastructureLoading ? (
+              <div className="infrastructure-loading">
+                Consultando el estado de los equipos...
+              </div>
+            ) : infrastructureMessage ? (
+              <div
+                className="infrastructure-error"
+                role="alert"
+              >
+                <strong>No fue posible consultar Zabbix</strong>
+                <span>{infrastructureMessage}</span>
+              </div>
+            ) : (
+              <>
+                <div className="infrastructure-grid">
+                  <div className="infrastructure-item total">
+                    <span>Equipos monitoreados</span>
+                    <strong>{infrastructure.total_hosts}</strong>
+                  </div>
+
+                  <div className="infrastructure-item healthy">
+                    <span>Saludables</span>
+                    <strong>{infrastructure.saludables}</strong>
+                  </div>
+
+                  <div className="infrastructure-item degraded">
+                    <span>Degradados</span>
+                    <strong>{infrastructure.degradados}</strong>
+                  </div>
+
+                  <div className="infrastructure-item critical">
+                    <span>Críticos</span>
+                    <strong>{infrastructure.criticos}</strong>
+                  </div>
+
+                  <div className="infrastructure-item offline">
+                    <span>Sin conexión</span>
+                    <strong>{infrastructure.sin_conexion}</strong>
+                  </div>
+
+                  <div className="infrastructure-item problems">
+                    <span>Problemas abiertos</span>
+                    <strong>
+                      {infrastructure.problemas_abiertos}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="infrastructure-footer">
+                  <span>
+                    Sin datos: {infrastructure.sin_datos}
+                  </span>
+                  <span>
+                    En mantenimiento:{' '}
+                    {infrastructure.en_mantenimiento}
+                  </span>
+                  <span>
+                    Deshabilitados:{' '}
+                    {infrastructure.deshabilitados}
+                  </span>
+                </div>
+              </>
+            )}
           </article>
         </section>
 

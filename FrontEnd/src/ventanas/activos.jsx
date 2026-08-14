@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { apiRequest } from '../servicios/api.js'
+import Notificacion from '../componentes/Notificacion.jsx'
 import './activos.css'
 
 const initialForm = {
@@ -22,15 +23,26 @@ const criticidadLabels = {
 function AssetsPage() {
   const navigate = useNavigate()
 
-  const [formData, setFormData] = useState(initialForm)
+  const [formData, setFormData] =
+    useState(initialForm)
   const [assets, setAssets] = useState([])
   const [assetTypes, setAssetTypes] = useState([])
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] =
+    useState('exito')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [changingStatusId, setChangingStatusId] =
     useState(null)
+
+  const mostrarMensaje = (
+    texto,
+    tipo = 'exito',
+  ) => {
+    setMessageType(tipo)
+    setMessage(texto)
+  }
 
   useEffect(() => {
     const loadData = async () => {
@@ -44,6 +56,7 @@ function AssetsPage() {
         setAssets(assetsResponse)
         setAssetTypes(typesResponse)
       } catch (error) {
+        setMessageType('error')
         setMessage(error.message)
       } finally {
         setIsLoading(false)
@@ -66,8 +79,9 @@ function AssetsPage() {
     event.preventDefault()
 
     if (!formData.nombre || !formData.tipo_activo_id) {
-      setMessage(
+      mostrarMensaje(
         'Completa el nombre y el tipo de activo.',
+        'error',
       )
       return
     }
@@ -107,7 +121,7 @@ function AssetsPage() {
           ),
         )
 
-        setMessage(
+        mostrarMensaje(
           'Activo actualizado correctamente.',
         )
       } else {
@@ -121,7 +135,7 @@ function AssetsPage() {
           newAsset,
         ])
 
-        setMessage(
+        mostrarMensaje(
           'Activo registrado correctamente.',
         )
       }
@@ -129,7 +143,7 @@ function AssetsPage() {
       setFormData(initialForm)
       setEditingId(null)
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setIsSaving(false)
     }
@@ -192,11 +206,11 @@ function AssetsPage() {
         ),
       )
 
-      setMessage(
+      mostrarMensaje(
         'Estado del activo actualizado correctamente.',
       )
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setChangingStatusId(null)
     }
@@ -212,9 +226,16 @@ function AssetsPage() {
 
   return (
     <main className="assets-page">
+      <Notificacion
+        mensaje={message}
+        tipo={messageType}
+        alCerrar={() => setMessage('')}
+      />
+
       <header className="assets-header">
         <div>
           <span>Inventario tecnológico</span>
+
           <h1>Gestión de activos</h1>
 
           <p>
@@ -226,10 +247,10 @@ function AssetsPage() {
         <button
           className="back-button"
           type="button"
+          aria-label="Volver al dashboard"
+          title="Volver al dashboard"
           onClick={() => navigate('/dashboard')}
-        >
-          Volver al dashboard
-        </button>
+        ></button>
       </header>
 
       <section className="assets-content">
@@ -369,15 +390,6 @@ function AssetsPage() {
               />
             </div>
 
-            {message && (
-              <p
-                className="asset-message"
-                role="alert"
-              >
-                {message}
-              </p>
-            )}
-
             <button
               className="save-asset-button"
               type="submit"
@@ -406,6 +418,7 @@ function AssetsPage() {
         <article className="asset-list-panel">
           <div className="panel-title">
             <span>Inventario actual</span>
+
             <h2>Activos registrados</h2>
 
             <p>

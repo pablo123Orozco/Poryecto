@@ -4,6 +4,7 @@ import {
   apiDownload,
   apiRequest,
 } from '../servicios/api.js'
+import Notificacion from '../componentes/Notificacion.jsx'
 import './activos.css'
 
 const initialForm = {
@@ -21,14 +22,25 @@ const typeLabels = {
 function ReportsPage() {
   const navigate = useNavigate()
 
-  const [formData, setFormData] = useState(initialForm)
+  const [formData, setFormData] =
+    useState(initialForm)
   const [reports, setReports] = useState([])
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] =
+    useState('exito')
   const [isLoading, setIsLoading] = useState(true)
   const [isGenerating, setIsGenerating] =
     useState(false)
   const [downloadingId, setDownloadingId] =
     useState(null)
+
+  const mostrarMensaje = (
+    texto,
+    tipo = 'exito',
+  ) => {
+    setMessageType(tipo)
+    setMessage(texto)
+  }
 
   useEffect(() => {
     const loadReports = async () => {
@@ -43,6 +55,7 @@ function ReportsPage() {
 
         setReports(excelReports)
       } catch (error) {
+        setMessageType('error')
         setMessage(error.message)
       } finally {
         setIsLoading(false)
@@ -65,8 +78,9 @@ function ReportsPage() {
     event.preventDefault()
 
     if (!formData.nombre.trim()) {
-      setMessage(
+      mostrarMensaje(
         'Escribe un nombre para el reporte.',
+        'error',
       )
       return
     }
@@ -75,13 +89,16 @@ function ReportsPage() {
     setIsGenerating(true)
 
     try {
-      const newReport = await apiRequest('/reportes', {
-        method: 'POST',
-        body: JSON.stringify({
-          nombre: formData.nombre.trim(),
-          tipo: formData.tipo,
-        }),
-      })
+      const newReport = await apiRequest(
+        '/reportes',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            nombre: formData.nombre.trim(),
+            tipo: formData.tipo,
+          }),
+        },
+      )
 
       setReports((previousReports) => [
         newReport,
@@ -90,11 +107,11 @@ function ReportsPage() {
 
       setFormData(initialForm)
 
-      setMessage(
+      mostrarMensaje(
         'Reporte Excel generado correctamente.',
       )
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setIsGenerating(false)
     }
@@ -114,11 +131,11 @@ function ReportsPage() {
         `${safeName || 'reporte'}.xlsx`,
       )
 
-      setMessage(
+      mostrarMensaje(
         'Reporte Excel descargado correctamente.',
       )
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setDownloadingId(null)
     }
@@ -129,14 +146,23 @@ function ReportsPage() {
       return 'Sin fecha'
     }
 
-    return new Date(dateValue).toLocaleString('es-GT')
+    return new Date(dateValue).toLocaleString(
+      'es-GT',
+    )
   }
 
   return (
     <main className="assets-page">
+      <Notificacion
+        mensaje={message}
+        tipo={messageType}
+        alCerrar={() => setMessage('')}
+      />
+
       <header className="assets-header">
         <div>
           <span>Exportación de información</span>
+
           <h1>Gestión de reportes</h1>
 
           <p>
@@ -148,16 +174,17 @@ function ReportsPage() {
         <button
           className="back-button"
           type="button"
+          aria-label="Volver al dashboard"
+          title="Volver al dashboard"
           onClick={() => navigate('/dashboard')}
-        >
-          Volver al dashboard
-        </button>
+        ></button>
       </header>
 
       <section className="assets-content">
         <article className="asset-form-panel">
           <div className="panel-title">
             <span>Nuevo reporte</span>
+
             <h2>Generar reporte Excel</h2>
 
             <p>
@@ -215,15 +242,6 @@ function ReportsPage() {
               </select>
             </div>
 
-            {message && (
-              <p
-                className="asset-message"
-                role="alert"
-              >
-                {message}
-              </p>
-            )}
-
             <button
               className="save-asset-button"
               type="submit"
@@ -239,6 +257,7 @@ function ReportsPage() {
         <article className="asset-list-panel">
           <div className="panel-title">
             <span>Historial</span>
+
             <h2>Reportes Excel generados</h2>
 
             <p>
@@ -261,8 +280,8 @@ function ReportsPage() {
               </h3>
 
               <p>
-                Utiliza el formulario para generar el primer
-                reporte.
+                Utiliza el formulario para generar el
+                primer reporte.
               </p>
             </div>
           ) : (
@@ -282,7 +301,7 @@ function ReportsPage() {
                       <h3>{report.nombre}</h3>
                     </div>
 
-                    <span className="criticality-badge">
+                    <span className="criticality-badge report-format-excel">
                       Excel
                     </span>
                   </div>
@@ -299,6 +318,7 @@ function ReportsPage() {
 
                     <div>
                       <dt>Formato</dt>
+
                       <dd>Excel (.xlsx)</dd>
                     </div>
 

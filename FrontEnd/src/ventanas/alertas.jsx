@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { apiRequest } from '../servicios/api.js'
+import Notificacion from '../componentes/Notificacion.jsx'
 import './activos.css'
 
 const initialForm = {
@@ -28,15 +29,25 @@ const statusLabels = {
 function AlertsPage() {
   const navigate = useNavigate()
 
-  const [formData, setFormData] = useState(initialForm)
+  const [formData, setFormData] =
+    useState(initialForm)
   const [alerts, setAlerts] = useState([])
   const [assets, setAssets] = useState([])
   const [message, setMessage] = useState('')
-  const [statusMessage, setStatusMessage] = useState('')
+  const [messageType, setMessageType] =
+    useState('exito')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [changingStatusId, setChangingStatusId] =
     useState(null)
+
+  const mostrarMensaje = (
+    texto,
+    tipo = 'exito',
+  ) => {
+    setMessageType(tipo)
+    setMessage(texto)
+  }
 
   useEffect(() => {
     const loadData = async () => {
@@ -50,6 +61,7 @@ function AlertsPage() {
         setAlerts(alertsResponse)
         setAssets(assetsResponse)
       } catch (error) {
+        setMessageType('error')
         setMessage(error.message)
       } finally {
         setIsLoading(false)
@@ -72,8 +84,9 @@ function AlertsPage() {
     event.preventDefault()
 
     if (!formData.activo_id || !formData.titulo) {
-      setMessage(
+      mostrarMensaje(
         'Selecciona un activo y escribe el título.',
+        'error',
       )
       return
     }
@@ -99,9 +112,12 @@ function AlertsPage() {
       ])
 
       setFormData(initialForm)
-      setMessage('Alerta registrada correctamente.')
+
+      mostrarMensaje(
+        'Alerta registrada correctamente.',
+      )
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setIsSaving(false)
     }
@@ -111,7 +127,7 @@ function AlertsPage() {
     alertId,
     newStatus,
   ) => {
-    setStatusMessage('')
+    setMessage('')
     setChangingStatusId(alertId)
 
     try {
@@ -133,11 +149,11 @@ function AlertsPage() {
         ),
       )
 
-      setStatusMessage(
+      mostrarMensaje(
         'Estado de la alerta actualizado correctamente.',
       )
     } catch (error) {
-      setStatusMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setChangingStatusId(null)
     }
@@ -153,11 +169,19 @@ function AlertsPage() {
 
   const getAvailableStatuses = (status) => {
     if (status === 'activa') {
-      return ['activa', 'reconocida', 'descartada']
+      return [
+        'activa',
+        'reconocida',
+        'descartada',
+      ]
     }
 
     if (status === 'reconocida') {
-      return ['reconocida', 'resuelta', 'descartada']
+      return [
+        'reconocida',
+        'resuelta',
+        'descartada',
+      ]
     }
 
     return [status]
@@ -168,14 +192,23 @@ function AlertsPage() {
       return 'Sin fecha'
     }
 
-    return new Date(dateValue).toLocaleString('es-GT')
+    return new Date(dateValue).toLocaleString(
+      'es-GT',
+    )
   }
 
   return (
     <main className="assets-page">
+      <Notificacion
+        mensaje={message}
+        tipo={messageType}
+        alCerrar={() => setMessage('')}
+      />
+
       <header className="assets-header">
         <div>
           <span>Monitoreo</span>
+
           <h1>Gestión de alertas</h1>
 
           <p>
@@ -187,16 +220,17 @@ function AlertsPage() {
         <button
           className="back-button"
           type="button"
+          aria-label="Volver al dashboard"
+          title="Volver al dashboard"
           onClick={() => navigate('/dashboard')}
-        >
-          Volver al dashboard
-        </button>
+        ></button>
       </header>
 
       <section className="assets-content">
         <article className="asset-form-panel">
           <div className="panel-title">
             <span>Nueva alerta</span>
+
             <h2>Registrar alerta</h2>
 
             <p>
@@ -268,10 +302,21 @@ function AlertsPage() {
                   Informativa
                 </option>
 
-                <option value="baja">Baja</option>
-                <option value="media">Media</option>
-                <option value="alta">Alta</option>
-                <option value="critica">Crítica</option>
+                <option value="baja">
+                  Baja
+                </option>
+
+                <option value="media">
+                  Media
+                </option>
+
+                <option value="alta">
+                  Alta
+                </option>
+
+                <option value="critica">
+                  Crítica
+                </option>
               </select>
             </div>
 
@@ -291,15 +336,6 @@ function AlertsPage() {
               />
             </div>
 
-            {message && (
-              <p
-                className="asset-message"
-                role="alert"
-              >
-                {message}
-              </p>
-            )}
-
             <button
               className="save-asset-button"
               type="submit"
@@ -315,21 +351,13 @@ function AlertsPage() {
         <article className="asset-list-panel">
           <div className="panel-title">
             <span>Alertas registradas</span>
+
             <h2>Seguimiento de alertas</h2>
 
             <p>
               Total de alertas: {alerts.length}
             </p>
           </div>
-
-          {statusMessage && (
-            <p
-              className="asset-message"
-              role="alert"
-            >
-              {statusMessage}
-            </p>
-          )}
 
           {isLoading ? (
             <div className="assets-empty-state">
@@ -372,7 +400,7 @@ function AlertsPage() {
                     >
                       {severityLabels[
                         alert.severidad
-                      ]}
+                      ] ?? alert.severidad}
                     </span>
                   </div>
 
@@ -384,9 +412,12 @@ function AlertsPage() {
                         <select
                           value={alert.estado}
                           disabled={
-                            changingStatusId === alert.id ||
-                            alert.estado === 'resuelta' ||
-                            alert.estado === 'descartada'
+                            changingStatusId ===
+                              alert.id ||
+                            alert.estado ===
+                              'resuelta' ||
+                            alert.estado ===
+                              'descartada'
                           }
                           onChange={(event) =>
                             handleStatusChange(
@@ -397,12 +428,16 @@ function AlertsPage() {
                         >
                           {getAvailableStatuses(
                             alert.estado,
-                          ).map((status) => (
+                          ).map((alertStatus) => (
                             <option
-                              key={status}
-                              value={status}
+                              key={alertStatus}
+                              value={alertStatus}
                             >
-                              {statusLabels[status]}
+                              {
+                                statusLabels[
+                                  alertStatus
+                                ]
+                              }
                             </option>
                           ))}
                         </select>
@@ -413,7 +448,9 @@ function AlertsPage() {
                       <dt>Detectada</dt>
 
                       <dd>
-                        {formatDate(alert.detectada_en)}
+                        {formatDate(
+                          alert.detectada_en,
+                        )}
                       </dd>
                     </div>
 
@@ -423,7 +460,7 @@ function AlertsPage() {
                       <dd>
                         {severityLabels[
                           alert.severidad
-                        ]}
+                        ] ?? alert.severidad}
                       </dd>
                     </div>
                   </dl>

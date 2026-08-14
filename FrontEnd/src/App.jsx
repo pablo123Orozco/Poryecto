@@ -16,6 +16,7 @@ import ReportsPage from './ventanas/reportes.jsx'
 import PlansPage from './ventanas/planes.jsx'
 import UsersPage from './ventanas/usuarios.jsx'
 import SitesPage from './ventanas/sedes.jsx'
+import MetricsPage from './ventanas/metricas.jsx'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -97,6 +98,10 @@ function App() {
       <Route
         path="/sedes"
         element={protectedPage(<SitesPage />)}
+      />
+      <Route
+        path="/metricas"
+         element={protectedPage(<MetricsPage />)}
       />
 
       <Route

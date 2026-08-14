@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { apiRequest } from '../servicios/api.js'
+import Notificacion from '../componentes/Notificacion.jsx'
 import './activos.css'
 
 const initialForm = {
@@ -18,13 +19,26 @@ const statusLabels = {
 function PlansPage() {
   const navigate = useNavigate()
 
-  const [formData, setFormData] = useState(initialForm)
+  const [formData, setFormData] =
+    useState(initialForm)
   const [plans, setPlans] = useState([])
-  const [subscriptions, setSubscriptions] = useState([])
+  const [subscriptions, setSubscriptions] =
+    useState([])
   const [message, setMessage] = useState('')
+  const [messageType, setMessageType] =
+    useState('exito')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [cancelingId, setCancelingId] = useState(null)
+  const [cancelingId, setCancelingId] =
+    useState(null)
+
+  const mostrarMensaje = (
+    texto,
+    tipo = 'exito',
+  ) => {
+    setMessageType(tipo)
+    setMessage(texto)
+  }
 
   useEffect(() => {
     const loadData = async () => {
@@ -40,6 +54,7 @@ function PlansPage() {
         setPlans(plansResponse)
         setSubscriptions(subscriptionsResponse)
       } catch (error) {
+        setMessageType('error')
         setMessage(error.message)
       } finally {
         setIsLoading(false)
@@ -72,13 +87,17 @@ function PlansPage() {
     event.preventDefault()
 
     if (!formData.plan_id) {
-      setMessage('Selecciona un plan.')
+      mostrarMensaje(
+        'Selecciona un plan.',
+        'error',
+      )
       return
     }
 
     if (activeSubscription) {
-      setMessage(
+      mostrarMensaje(
         'La organización ya tiene una suscripción activa.',
+        'error',
       )
       return
     }
@@ -98,18 +117,20 @@ function PlansPage() {
         },
       )
 
-      setSubscriptions((previousSubscriptions) => [
-        newSubscription,
-        ...previousSubscriptions,
-      ])
+      setSubscriptions(
+        (previousSubscriptions) => [
+          newSubscription,
+          ...previousSubscriptions,
+        ],
+      )
 
       setFormData(initialForm)
 
-      setMessage(
+      mostrarMensaje(
         'Suscripción creada correctamente.',
       )
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setIsSaving(false)
     }
@@ -135,19 +156,20 @@ function PlansPage() {
         },
       )
 
-      setSubscriptions((previousSubscriptions) =>
-        previousSubscriptions.map((item) =>
-          item.id === subscription.id
-            ? updatedSubscription
-            : item,
-        ),
+      setSubscriptions(
+        (previousSubscriptions) =>
+          previousSubscriptions.map((item) =>
+            item.id === subscription.id
+              ? updatedSubscription
+              : item,
+          ),
       )
 
-      setMessage(
+      mostrarMensaje(
         'Suscripción cancelada correctamente.',
       )
     } catch (error) {
-      setMessage(error.message)
+      mostrarMensaje(error.message, 'error')
     } finally {
       setCancelingId(null)
     }
@@ -177,9 +199,16 @@ function PlansPage() {
 
   return (
     <main className="assets-page">
+      <Notificacion
+        mensaje={message}
+        tipo={messageType}
+        alCerrar={() => setMessage('')}
+      />
+
       <header className="assets-header">
         <div>
           <span>Servicio contratado</span>
+
           <h1>Planes y suscripción</h1>
 
           <p>
@@ -191,16 +220,17 @@ function PlansPage() {
         <button
           className="back-button"
           type="button"
+          aria-label="Volver al dashboard"
+          title="Volver al dashboard"
           onClick={() => navigate('/dashboard')}
-        >
-          Volver al dashboard
-        </button>
+        ></button>
       </header>
 
       <section className="assets-content">
         <article className="asset-form-panel">
           <div className="panel-title">
             <span>Planes disponibles</span>
+
             <h2>Seleccionar un plan</h2>
 
             <p>
@@ -249,7 +279,8 @@ function PlansPage() {
                   handleCancel(activeSubscription)
                 }
               >
-                {cancelingId === activeSubscription.id
+                {cancelingId ===
+                activeSubscription.id
                   ? 'Cancelando...'
                   : 'Cancelar suscripción'}
               </button>
@@ -331,13 +362,15 @@ function PlansPage() {
                   <p>
                     Precio seleccionado:{' '}
                     <strong>
-                      {formData.periodicidad === 'mensual'
+                      {formData.periodicidad ===
+                      'mensual'
                         ? formatPrice(
                             selectedPlan
                               .precio_mensual,
                           )
                         : formatPrice(
-                            selectedPlan.precio_anual,
+                            selectedPlan
+                              .precio_anual,
                           )}
                     </strong>
                   </p>
@@ -355,20 +388,12 @@ function PlansPage() {
               </button>
             </form>
           )}
-
-          {message && (
-            <p
-              className="asset-message"
-              role="alert"
-            >
-              {message}
-            </p>
-          )}
         </article>
 
         <article className="asset-list-panel">
           <div className="panel-title">
             <span>Historial</span>
+
             <h2>Suscripciones registradas</h2>
 
             <p>
@@ -413,10 +438,17 @@ function PlansPage() {
                       </h3>
                     </div>
 
-                    <span className="criticality-badge">
+                    <span
+                      className={
+                        `criticality-badge ` +
+                        `subscription-status-${
+                          subscription.estado
+                        }`
+                      }
+                    >
                       {statusLabels[
                         subscription.estado
-                      ]}
+                      ] ?? subscription.estado}
                     </span>
                   </div>
 
