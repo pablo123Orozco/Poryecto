@@ -20,6 +20,279 @@ const criticidadLabels = {
   critica: 'Crítica',
 }
 
+const convertirNumero = (value) => {
+  const number = Number(value)
+
+  return Number.isFinite(number) ? number : null
+}
+
+const obtenerIndiceInterfaz = (key) => {
+  const match = String(key).match(/\.([^.\]]+)\]$/)
+
+  return match?.[1] ?? null
+}
+
+const obtenerNombreInterfaz = (metric, index) => {
+  const match = String(metric.name ?? '').match(
+    /^Interface\s+(.+?):/i,
+  )
+
+  return match?.[1] ?? `Interfaz ${index}`
+}
+
+const construirPuertosSnmp = (metrics) => {
+  const ports = new Map()
+
+  metrics.forEach((metric) => {
+    const key = String(metric.key_ ?? '')
+
+    if (!key.startsWith('net.if.')) {
+      return
+    }
+
+    const index = obtenerIndiceInterfaz(key)
+
+    if (!index) {
+      return
+    }
+
+    const port = ports.get(index) ?? {
+      index,
+      name: obtenerNombreInterfaz(metric, index),
+      status: null,
+      speed: null,
+      received: null,
+      sent: null,
+      inboundErrors: null,
+      outboundErrors: null,
+      lastClock: 0,
+    }
+
+    port.name = obtenerNombreInterfaz(metric, index)
+    port.lastClock = Math.max(
+      port.lastClock,
+      Number(metric.lastclock ?? 0),
+    )
+
+    const value = convertirNumero(metric.lastvalue)
+
+    if (key.startsWith('net.if.in.errors[')) {
+      port.inboundErrors = value
+    } else if (key.startsWith('net.if.out.errors[')) {
+      port.outboundErrors = value
+    } else if (key.startsWith('net.if.in[')) {
+      port.received = value
+    } else if (key.startsWith('net.if.out[')) {
+      port.sent = value
+    } else if (key.startsWith('net.if.status[')) {
+      port.status = value
+    } else if (key.startsWith('net.if.speed[')) {
+      port.speed = value
+    }
+
+    ports.set(index, port)
+  })
+
+  return Array.from(ports.values()).sort((first, second) =>
+    first.index.localeCompare(second.index, undefined, {
+      numeric: true,
+    }),
+  )
+}
+
+const formatNetworkValue = (value) => {
+  if (value === null || value === undefined) {
+    return 'Sin datos'
+  }
+
+  const units = [
+    ['Tbps', 1_000_000_000_000],
+    ['Gbps', 1_000_000_000],
+    ['Mbps', 1_000_000],
+    ['Kbps', 1_000],
+  ]
+
+  const selected = units.find(
+    ([, divisor]) => Math.abs(value) >= divisor,
+  )
+
+  if (!selected) {
+    return `${value.toFixed(0)} bps`
+  }
+
+  const [unit, divisor] = selected
+
+  return `${(value / divisor).toLocaleString('es-GT', {
+    maximumFractionDigits: 2,
+  })} ${unit}`
+}
+
+const formatLastCheck = (timestamp) => {
+  if (!timestamp) {
+    return 'Sin datos'
+  }
+
+  return new Date(timestamp * 1000).toLocaleTimeString(
+    'es-GT',
+    {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    },
+  )
+}
+
+function SnmpPortsPanel({
+  ports,
+  isLoading,
+  error,
+  onRefresh,
+}) {
+  const maximumTraffic = Math.max(
+    1,
+    ...ports.flatMap((port) => [
+      port.received ?? 0,
+      port.sent ?? 0,
+    ]),
+  )
+
+  const getBarWidth = (value) => {
+    if (!value || value <= 0) {
+      return '0%'
+    }
+
+    return `${Math.max(4, (value / maximumTraffic) * 100)}%`
+  }
+
+  return (
+    <section className="snmp-ports-panel">
+      <div className="snmp-ports-header">
+        <div>
+          <span>Monitoreo SNMP</span>
+          <h4>Interfaces de red</h4>
+          <p>Tráfico actual obtenido desde Zabbix.</p>
+        </div>
+
+        <button
+          className="refresh-snmp-button"
+          type="button"
+          onClick={onRefresh}
+          disabled={isLoading}
+        >
+          {isLoading ? 'Actualizando...' : 'Actualizar'}
+        </button>
+      </div>
+
+      {error && (
+        <p className="snmp-panel-message snmp-panel-error">
+          {error}
+        </p>
+      )}
+
+      {isLoading && ports.length === 0 ? (
+        <p className="snmp-panel-message">
+          Consultando métricas SNMP...
+        </p>
+      ) : ports.length === 0 && !error ? (
+        <p className="snmp-panel-message">
+          Zabbix todavía no posee métricas de interfaces para
+          este activo.
+        </p>
+      ) : (
+        <div className="snmp-port-grid">
+          {ports.map((port) => {
+            const isUp = port.status === 1
+            const isDown = port.status === 2
+            const statusText = isUp
+              ? 'Disponible'
+              : isDown
+                ? 'Caído'
+                : 'Sin dato'
+
+            return (
+              <article
+                className={`snmp-port-card ${
+                  isUp
+                    ? 'snmp-port-up'
+                    : isDown
+                      ? 'snmp-port-down'
+                      : 'snmp-port-unknown'
+                }`}
+                key={port.index}
+              >
+                <div className="snmp-port-title">
+                  <div>
+                    <span>Puerto {port.index}</span>
+                    <h5>{port.name}</h5>
+                  </div>
+
+                  <span className="snmp-status-badge">
+                    {statusText}
+                  </span>
+                </div>
+
+                <dl className="snmp-port-facts">
+                  <div>
+                    <dt>Velocidad</dt>
+                    <dd>{formatNetworkValue(port.speed)}</dd>
+                  </div>
+
+                  <div>
+                    <dt>Errores</dt>
+                    <dd>
+                      {(port.inboundErrors ?? 0) +
+                        (port.outboundErrors ?? 0)}
+                    </dd>
+                  </div>
+
+                  <div>
+                    <dt>Última lectura</dt>
+                    <dd>{formatLastCheck(port.lastClock)}</dd>
+                  </div>
+                </dl>
+
+                <div className="traffic-chart">
+                  <div className="traffic-chart-label">
+                    <span>Recibido</span>
+                    <strong>
+                      {formatNetworkValue(port.received)}
+                    </strong>
+                  </div>
+
+                  <div className="traffic-track">
+                    <span
+                      className="traffic-fill traffic-received"
+                      style={{
+                        width: getBarWidth(port.received),
+                      }}
+                    ></span>
+                  </div>
+
+                  <div className="traffic-chart-label">
+                    <span>Enviado</span>
+                    <strong>
+                      {formatNetworkValue(port.sent)}
+                    </strong>
+                  </div>
+
+                  <div className="traffic-track">
+                    <span
+                      className="traffic-fill traffic-sent"
+                      style={{
+                        width: getBarWidth(port.sent),
+                      }}
+                    ></span>
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      )}
+    </section>
+  )
+}
+
 function AssetsPage() {
   const navigate = useNavigate()
 
@@ -27,6 +300,7 @@ function AssetsPage() {
     useState(initialForm)
   const [assets, setAssets] = useState([])
   const [assetTypes, setAssetTypes] = useState([])
+  const [zabbixHosts, setZabbixHosts] = useState([])
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] =
     useState('exito')
@@ -35,6 +309,16 @@ function AssetsPage() {
   const [editingId, setEditingId] = useState(null)
   const [changingStatusId, setChangingStatusId] =
     useState(null)
+  const [linkingZabbixId, setLinkingZabbixId] =
+    useState(null)
+  const [expandedSnmpId, setExpandedSnmpId] =
+    useState(null)
+  const [loadingSnmpId, setLoadingSnmpId] =
+    useState(null)
+  const [snmpPortsByAsset, setSnmpPortsByAsset] =
+    useState({})
+  const [snmpErrorsByAsset, setSnmpErrorsByAsset] =
+    useState({})
 
   const mostrarMensaje = (
     texto,
@@ -55,6 +339,19 @@ function AssetsPage() {
 
         setAssets(assetsResponse)
         setAssetTypes(typesResponse)
+
+        try {
+          const hostsResponse = await apiRequest(
+            '/zabbix/hosts',
+          )
+
+          setZabbixHosts(hostsResponse)
+        } catch (error) {
+          mostrarMensaje(
+            `No fue posible cargar los hosts de Zabbix: ${error.message}`,
+            'error',
+          )
+        }
       } catch (error) {
         setMessageType('error')
         setMessage(error.message)
@@ -214,6 +511,108 @@ function AssetsPage() {
     } finally {
       setChangingStatusId(null)
     }
+  }
+
+  const handleZabbixLink = async (
+    assetId,
+    zabbixHostId,
+  ) => {
+    setMessage('')
+    setLinkingZabbixId(assetId)
+
+    try {
+      const updatedAsset = await apiRequest(
+        `/activos/${assetId}/zabbix`,
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            zabbix_host_id: zabbixHostId || null,
+          }),
+        },
+      )
+
+      setAssets((previousAssets) =>
+        previousAssets.map((asset) =>
+          asset.id === assetId
+            ? updatedAsset
+            : asset,
+        ),
+      )
+
+      mostrarMensaje(
+        zabbixHostId
+          ? 'Host de Zabbix vinculado correctamente.'
+          : 'Host de Zabbix desvinculado correctamente.',
+      )
+    } catch (error) {
+      mostrarMensaje(error.message, 'error')
+    } finally {
+      setLinkingZabbixId(null)
+    }
+  }
+
+  const isZabbixHostLinked = (
+    zabbixHostId,
+    currentAssetId,
+  ) =>
+    assets.some(
+      (asset) =>
+        asset.id !== currentAssetId &&
+        String(asset.zabbix_host_id ?? '') ===
+          String(zabbixHostId),
+    )
+
+  const assetUsesSnmp = (asset) => {
+    const host = zabbixHosts.find(
+      (item) =>
+        String(item.hostid) ===
+        String(asset.zabbix_host_id ?? ''),
+    )
+
+    return host?.interfaces?.some(
+      (networkInterface) =>
+        String(networkInterface.type) === '2',
+    )
+  }
+
+  const loadSnmpPorts = async (assetId) => {
+    setLoadingSnmpId(assetId)
+    setSnmpErrorsByAsset((previousErrors) => ({
+      ...previousErrors,
+      [assetId]: '',
+    }))
+
+    try {
+      const metrics = await apiRequest(
+        `/zabbix/activos/${assetId}/metricas`,
+      )
+
+      setSnmpPortsByAsset((previousPorts) => ({
+        ...previousPorts,
+        [assetId]: construirPuertosSnmp(metrics),
+      }))
+    } catch (error) {
+      setSnmpErrorsByAsset((previousErrors) => ({
+        ...previousErrors,
+        [assetId]: error.message,
+      }))
+      mostrarMensaje(
+        `No fue posible consultar las métricas SNMP: ${error.message}`,
+        'error',
+      )
+    } finally {
+      setLoadingSnmpId(null)
+    }
+  }
+
+  const handleToggleSnmp = async (assetId) => {
+    if (expandedSnmpId === assetId) {
+      setExpandedSnmpId(null)
+      return
+    }
+
+    setExpandedSnmpId(assetId)
+    await loadSnmpPorts(assetId)
   }
 
   const getAssetTypeName = (typeId) => {
@@ -526,6 +925,52 @@ function AssetsPage() {
                         </select>
                       </dd>
                     </div>
+
+                    <div>
+                      <dt>Monitoreo Zabbix</dt>
+
+                      <dd>
+                        <select
+                          value={
+                            asset.zabbix_host_id ?? ''
+                          }
+                          disabled={
+                            linkingZabbixId === asset.id
+                          }
+                          onChange={(event) =>
+                            handleZabbixLink(
+                              asset.id,
+                              event.target.value,
+                            )
+                          }
+                        >
+                          <option value="">
+                            Sin vincular
+                          </option>
+
+                          {zabbixHosts.map((host) => {
+                            const linked =
+                              isZabbixHostLinked(
+                                host.hostid,
+                                asset.id,
+                              )
+
+                            return (
+                              <option
+                                key={host.hostid}
+                                value={host.hostid}
+                                disabled={linked}
+                              >
+                                {host.name || host.host}
+                                {linked
+                                  ? ' (ya vinculado)'
+                                  : ''}
+                              </option>
+                            )
+                          })}
+                        </select>
+                      </dd>
+                    </div>
                   </dl>
 
                   {asset.descripcion && (
@@ -534,13 +979,47 @@ function AssetsPage() {
                     </p>
                   )}
 
-                  <button
-                    className="edit-asset-button"
-                    type="button"
-                    onClick={() => handleEdit(asset)}
-                  >
-                    Editar activo
-                  </button>
+                  <div className="asset-actions">
+                    <button
+                      className="edit-asset-button"
+                      type="button"
+                      onClick={() => handleEdit(asset)}
+                    >
+                      Editar activo
+                    </button>
+
+                    {asset.zabbix_host_id &&
+                      assetUsesSnmp(asset) && (
+                      <button
+                        className="view-snmp-button"
+                        type="button"
+                        onClick={() =>
+                          handleToggleSnmp(asset.id)
+                        }
+                      >
+                        {expandedSnmpId === asset.id
+                          ? 'Ocultar puertos'
+                          : 'Ver puertos SNMP'}
+                      </button>
+                    )}
+                  </div>
+
+                  {expandedSnmpId === asset.id && (
+                    <SnmpPortsPanel
+                      ports={
+                        snmpPortsByAsset[asset.id] ?? []
+                      }
+                      isLoading={
+                        loadingSnmpId === asset.id
+                      }
+                      error={
+                        snmpErrorsByAsset[asset.id] ?? ''
+                      }
+                      onRefresh={() =>
+                        loadSnmpPorts(asset.id)
+                      }
+                    />
+                  )}
                 </article>
               ))}
             </div>

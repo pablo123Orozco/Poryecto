@@ -234,6 +234,31 @@ function DashboardPage({ onLogout }) {
             >
             Métricas
             </button>
+             <button
+              className="navigation-item"
+               type="button"
+              onClick={() => navigate('/riesgos')}
+            >
+             Evaluación de riesgos
+            </button>
+
+            
+            <button
+              className="navigation-item"
+               type="button"
+              onClick={() => navigate('/auditoria')}
+            >
+            Auditoría
+            </button>
+
+            <button
+              className="navigation-item"
+               type="button"
+              onClick={() => navigate('/ia')}
+            >
+            Inteligencia Artificial
+            </button>
+
           </nav>
         </div>
 
@@ -324,7 +349,7 @@ function DashboardPage({ onLogout }) {
             <p>Programados o en proceso</p>
           </button>
         </section>
-
+        <br /><br /><br /><br /><br /><br />
         <section className="infrastructure-section">
           <article className="dashboard-panel infrastructure-panel">
             <div className="panel-header infrastructure-header">
@@ -393,89 +418,12 @@ function DashboardPage({ onLogout }) {
 
                 <div className="infrastructure-footer">
                   <span>
-                    Sin datos: {infrastructure.sin_datos}
-                  </span>
-                  <span>
-                    En mantenimiento:{' '}
-                    {infrastructure.en_mantenimiento}
-                  </span>
-                  <span>
                     Deshabilitados:{' '}
                     {infrastructure.deshabilitados}
                   </span>
                 </div>
               </>
             )}
-          </article>
-        </section>
-
-        <section className="dashboard-sections">
-          <article className="dashboard-panel">
-            <div className="panel-header">
-              <div>
-                <span>Estado actual</span>
-                <h2>Alertas de la organización</h2>
-              </div>
-            </div>
-
-            <div className="empty-state">
-              <div className="empty-icon">!</div>
-
-              {metrics.alertas === 0 ? (
-                <>
-                  <h3>No existen alertas activas</h3>
-
-                  <p>
-                    Actualmente no existen alertas que
-                    requieran atención.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h3>
-                    {metrics.alertas} alertas requieren
-                    atención
-                  </h3>
-
-                  <p>
-                    {metrics.alertasCriticas} corresponden a
-                    alertas de severidad crítica.
-                  </p>
-                </>
-              )}
-            </div>
-          </article>
-
-          <article className="dashboard-panel">
-            <div className="panel-header">
-              <div>
-                <span>Seguimiento</span>
-                <h2>Acciones prioritarias</h2>
-              </div>
-            </div>
-
-            <div className="empty-state small">
-              {metrics.incidentes === 0 &&
-              metrics.mantenimientos === 0 ? (
-                <>
-                  <h3>No hay acciones pendientes</h3>
-
-                  <p>
-                    No existen incidentes abiertos ni
-                    mantenimientos pendientes.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h3>Existen acciones pendientes</h3>
-
-                  <p>
-                    Revisa los incidentes y mantenimientos
-                    que todavía no han finalizado.
-                  </p>
-                </>
-              )}
-            </div>
           </article>
         </section>
       </main>

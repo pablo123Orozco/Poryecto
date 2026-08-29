@@ -6,6 +6,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     status,
 )
 from sqlalchemy import select
@@ -27,6 +28,7 @@ from app.services.zabbix import (
     listar_hosts_zabbix,
     listar_metricas_host_zabbix,
     listar_problemas_host_zabbix,
+    obtener_historial_metrica_host_zabbix,
     obtener_estado_infraestructura_zabbix,
 )
 
@@ -172,6 +174,54 @@ def consultar_metricas_activo_zabbix(
             ),
             detail=str(error),
         ) from error
+
+
+@router.get("/activos/{activo_id}/metricas/historial")
+def consultar_historial_metrica_activo_zabbix(
+    activo_id: int,
+    clave: str = Query(
+        ...,
+        min_length=1,
+        max_length=255,
+    ),
+    horas: int = Query(1, ge=1, le=168),
+    limite: int = Query(300, ge=10, le=2000),
+    usuario: Usuario = Depends(
+        obtener_usuario_actual
+    ),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Consulta el historial de una metrica de Zabbix."""
+
+    activo = obtener_activo_vinculado(
+        activo_id=activo_id,
+        usuario=usuario,
+        db=db,
+    )
+
+    try:
+        historial = obtener_historial_metrica_host_zabbix(
+            zabbix_host_id=activo.zabbix_host_id,
+            clave=clave,
+            horas=horas,
+            limite=limite,
+        )
+
+    except ZabbixError as error:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_503_SERVICE_UNAVAILABLE
+            ),
+            detail=str(error),
+        ) from error
+
+    if historial is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Metrica no encontrada en Zabbix.",
+        )
+
+    return historial
 
 
 @router.get("/activos/{activo_id}/problemas")

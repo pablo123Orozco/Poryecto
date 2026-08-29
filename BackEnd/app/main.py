@@ -24,7 +24,8 @@ from app.routers.suscripciones import router as suscripciones_router
 from app.routers.zabbix import router as zabbix_router
 from fastapi.middleware.cors import CORSMiddleware
 from app.services.tarea_zabbix import ejecutar_tarea_zabbix
-
+from app.routers.ia import router as ia_router
+from app.routers.riesgo import router as riesgos_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Inicia y detiene la sincronizacion automatica."""
@@ -76,6 +77,8 @@ app.include_router(reportes_router, prefix="/api/v1")
 app.include_router(planes_router, prefix="/api/v1")
 app.include_router(suscripciones_router, prefix="/api/v1")
 app.include_router(zabbix_router,prefix="/api/v1")
+app.include_router(ia_router,prefix="/api/v1")
+app.include_router(riesgos_router, prefix="/api/v1")
 
 @app.get("/", tags=["Sistema"])
 def root() -> dict[str, str]:

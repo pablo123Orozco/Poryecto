@@ -1,0 +1,363 @@
+.audit-page {
+  min-height: 100vh;
+  padding: 35px;
+  color: #172033;
+  background:
+    radial-gradient(circle at top right, rgba(40, 120, 189, 0.08), transparent 30%),
+    #f4f7fb;
+}
+
+.audit-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 30px;
+  max-width: 1400px;
+  margin: 0 auto 30px;
+}
+
+.audit-header > div > span,
+.audit-panel-heading > div > span {
+  color: #2878bd;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.audit-header h1 {
+  margin: 8px 0;
+  color: #102a43;
+  font-size: 32px;
+}
+
+.audit-header p,
+.audit-panel-heading p {
+  margin: 0;
+  color: #627d98;
+  line-height: 1.6;
+}
+
+.audit-back-button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  color: #1565a7;
+  background-color: #ffffff;
+  border: 1px solid #c8d6e5;
+  border-radius: 12px;
+  box-shadow: 0 5px 14px rgba(16, 42, 67, 0.08);
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.audit-back-button:hover {
+  transform: translateY(-2px);
+  background-color: #eaf4fc;
+  box-shadow: 0 8px 18px rgba(16, 42, 67, 0.12);
+}
+
+.audit-panel {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 28px;
+  background-color: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(16, 42, 67, 0.07);
+}
+
+.audit-panel-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #e6edf3;
+}
+
+.audit-panel-heading h2 {
+  margin: 7px 0 5px;
+  color: #102a43;
+  font-size: 22px;
+}
+
+.audit-panel-heading p {
+  font-size: 14px;
+}
+
+.audit-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.audit-filters label {
+  display: grid;
+  gap: 7px;
+}
+
+.audit-filters label > span {
+  color: #486581;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.audit-filters input,
+.audit-filters select {
+  min-height: 42px;
+  padding: 10px 12px;
+  color: #243b53;
+  background: #ffffff;
+  border: 1px solid #bcccdc;
+  border-radius: 9px;
+  outline: none;
+}
+
+.audit-filters input {
+  width: 285px;
+}
+
+.audit-filters select {
+  min-width: 160px;
+}
+
+.audit-filters input:focus,
+.audit-filters select:focus {
+  border-color: #2878bd;
+  box-shadow: 0 0 0 3px rgba(40, 120, 189, 0.14);
+}
+
+.audit-message {
+  display: grid;
+  gap: 4px;
+  margin-top: 22px;
+  padding: 14px 16px;
+  color: #8b1e1e;
+  background-color: #fff1f1;
+  border: 1px solid #f1b5b5;
+  border-left: 4px solid #c62828;
+  border-radius: 9px;
+  font-size: 14px;
+}
+
+.audit-empty-state {
+  display: grid;
+  justify-items: center;
+  padding: 85px 20px;
+  text-align: center;
+}
+
+.audit-empty-state h3 {
+  margin: 16px 0 7px;
+  color: #243b53;
+}
+
+.audit-empty-state p {
+  max-width: 430px;
+  margin: 0;
+  color: #627d98;
+  line-height: 1.6;
+}
+
+.audit-empty-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  color: #1565a7;
+  background-color: #eaf4fc;
+  border-radius: 50%;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.audit-loader {
+  width: 38px;
+  height: 38px;
+  border: 4px solid #d9e2ec;
+  border-top-color: #2878bd;
+  border-radius: 50%;
+  animation: audit-spin 800ms linear infinite;
+}
+
+@keyframes audit-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.audit-table-wrapper {
+  margin-top: 22px;
+  overflow-x: auto;
+  border: 1px solid #e1e8ef;
+  border-radius: 12px;
+}
+
+.audit-table {
+  width: 100%;
+  min-width: 1120px;
+  border-collapse: collapse;
+}
+
+.audit-table th {
+  padding: 13px 15px;
+  color: #627d98;
+  background-color: #f7f9fc;
+  border-bottom: 1px solid #d9e2ec;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.45px;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.audit-table td {
+  padding: 15px;
+  color: #334e68;
+  border-bottom: 1px solid #edf2f7;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.audit-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.audit-table tbody tr:hover {
+  background-color: #f8fbfe;
+}
+
+.audit-table td > strong,
+.audit-user {
+  color: #243b53;
+}
+
+.audit-table td > small {
+  display: block;
+  margin-top: 4px;
+  color: #829ab1;
+}
+
+.audit-date {
+  white-space: nowrap;
+}
+
+.audit-action,
+.audit-response {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.audit-action {
+  color: #155b8f;
+  background-color: #e7f3fb;
+}
+
+.audit-action-crear,
+.audit-action-registrar {
+  color: #1b6338;
+  background-color: #e7f6ed;
+}
+
+.audit-action-eliminar {
+  color: #a31515;
+  background-color: #fdecec;
+}
+
+.audit-action-actualizar {
+  color: #8a5200;
+  background-color: #fff4dc;
+}
+
+.audit-request {
+  display: grid;
+  gap: 5px;
+  max-width: 310px;
+}
+
+.audit-request strong {
+  color: #2878bd;
+  font-size: 11px;
+}
+
+.audit-request code {
+  overflow: hidden;
+  color: #486581;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.response-success {
+  color: #1b6338;
+  background-color: #e7f6ed;
+}
+
+.response-warning {
+  color: #8a5200;
+  background-color: #fff4dc;
+}
+
+.response-error {
+  color: #a31515;
+  background-color: #fdecec;
+}
+
+.response-neutral {
+  color: #486581;
+  background-color: #edf2f7;
+}
+
+.audit-ip {
+  color: #486581;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.audit-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  padding-top: 22px;
+}
+
+.audit-pagination span {
+  color: #627d98;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.audit-pagination button {
+  min-width: 100px;
+  padding: 10px 14px;
+  color: #1565a7;
+  background-color: #ffffff;
+  border: 1px solid #9fb3c8;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.audit-pagination button:hover:not(:disabled) {
+  color: #ffffff;
+  background-color: #1565a7;
+  border-color: #1565a7;
+}
+
+.audit-pagination button:disabled {
+  color: #9fb3c8;
+  background-color: #f4f7fb;
+  cursor: not-allowed;
+}

@@ -204,7 +204,10 @@ def listar_metricas_host_zabbix(
     claves_principales = {
         "agent.ping",
         "system.uptime",
+        "system.hw.uptime[hrSystemUptime.0]",
+        "system.net.uptime[sysUpTime.0]",
         "vm.memory.util",
+        "zabbix[host,snmp,available]",
     }
     metricas: list[dict[str, Any]] = []
 
@@ -215,13 +218,26 @@ def listar_metricas_host_zabbix(
             clave.startswith("vfs.fs.size[")
             and clave.endswith(",pused]")
         )
+        es_interfaz_snmp = clave.startswith(
+            (
+                "net.if.in[",
+                "net.if.out[",
+                "net.if.status[",
+                "net.if.speed[",
+                "net.if.in.errors[",
+                "net.if.out.errors[",
+            )
+        )
         tiene_valor = (
             item.get("lastclock") not in ("", "0", None)
             and item.get("lastvalue") not in ("", None)
         )
 
         if (
-            clave in claves_principales or es_cpu or es_disco
+            clave in claves_principales
+            or es_cpu
+            or es_disco
+            or es_interfaz_snmp
         ) and tiene_valor:
             metricas.append(item)
 
@@ -229,6 +245,103 @@ def listar_metricas_host_zabbix(
         metricas,
         key=lambda metrica: str(metrica.get("name", "")),
     )
+
+
+def obtener_historial_metrica_host_zabbix(
+    zabbix_host_id: str,
+    clave: str,
+    horas: int = 1,
+    limite: int = 300,
+) -> dict[str, Any] | None:
+    """Obtiene el historial numerico de una metrica."""
+
+    items = llamar_api_zabbix(
+        "item.get",
+        {
+            "hostids": [zabbix_host_id],
+            "monitored": True,
+            "filter": {"key_": [clave]},
+            "output": [
+                "itemid",
+                "name",
+                "key_",
+                "units",
+                "value_type",
+            ],
+        },
+    )
+
+    if not isinstance(items, list):
+        raise ZabbixError(
+            "Zabbix devolvio una metrica no valida."
+        )
+
+    if not items:
+        return None
+
+    item = items[0]
+
+    try:
+        tipo_valor = int(str(item.get("value_type", "")))
+    except ValueError as error:
+        raise ZabbixError(
+            "La metrica no posee un tipo de valor valido."
+        ) from error
+
+    if tipo_valor not in (0, 3):
+        raise ZabbixError(
+            "La metrica seleccionada no es numerica."
+        )
+
+    hasta = int(datetime.now(timezone.utc).timestamp())
+    desde = hasta - (horas * 60 * 60)
+
+    historial = llamar_api_zabbix(
+        "history.get",
+        {
+            "output": [
+                "itemid",
+                "clock",
+                "value",
+                "ns",
+            ],
+            "history": tipo_valor,
+            "itemids": [str(item["itemid"])],
+            "time_from": desde,
+            "time_till": hasta,
+            "sortfield": ["clock", "ns"],
+            "sortorder": ["ASC", "ASC"],
+            "limit": limite,
+        },
+    )
+
+    if not isinstance(historial, list):
+        raise ZabbixError(
+            "Zabbix devolvio un historial no valido."
+        )
+
+    puntos: list[dict[str, int | float]] = []
+
+    for registro in historial:
+        try:
+            puntos.append(
+                {
+                    "timestamp": int(str(registro["clock"])),
+                    "valor": float(str(registro["value"])),
+                }
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+
+    return {
+        "item_id": str(item["itemid"]),
+        "nombre": str(item.get("name", "")),
+        "clave": str(item.get("key_", clave)),
+        "unidad": str(item.get("units", "")),
+        "desde": desde,
+        "hasta": hasta,
+        "puntos": puntos,
+    }
 
 
 def listar_problemas_host_zabbix(
@@ -368,16 +481,40 @@ def host_sin_conexion(host: dict[str, Any]) -> bool:
     if not isinstance(interfaces, list):
         return False
 
-    interfaces_agente = [
+    interfaces_monitoreo = [
         interfaz
         for interfaz in interfaces
-        if str(interfaz.get("type", "")) == "1"
+        if str(interfaz.get("type", "")) in ("1", "2")
     ]
 
-    return bool(interfaces_agente) and all(
+    return bool(interfaces_monitoreo) and all(
         str(interfaz.get("available", "0")) == "2"
-        for interfaz in interfaces_agente
+        for interfaz in interfaces_monitoreo
     )
+
+
+def obtener_disponibilidad_snmp(
+    host: dict[str, Any],
+) -> str:
+    """Resume la disponibilidad de las interfaces SNMP del host."""
+
+    interfaces = host.get("interfaces", [])
+    if not isinstance(interfaces, list):
+        return "0"
+
+    disponibilidades = [
+        str(interfaz.get("available", "0"))
+        for interfaz in interfaces
+        if str(interfaz.get("type", "")) == "2"
+    ]
+
+    if not disponibilidades:
+        return "0"
+    if "1" in disponibilidades:
+        return "1"
+    if all(valor == "2" for valor in disponibilidades):
+        return "2"
+    return "0"
 
 
 def determinar_estado_host(
@@ -464,6 +601,7 @@ def obtener_estado_host_zabbix(
         "disponibilidad_activa": str(
             host.get("active_available", "0")
         ),
+        "disponibilidad_snmp": obtener_disponibilidad_snmp(host),
         "en_mantenimiento": str(
             host.get("maintenance_status", "0")
         ) == "1",
@@ -541,6 +679,9 @@ def obtener_estado_infraestructura_zabbix(
                 "habilitado": str(host.get("status", "0")) == "0",
                 "disponibilidad_activa": str(
                     host.get("active_available", "0")
+                ),
+                "disponibilidad_snmp": obtener_disponibilidad_snmp(
+                    host
                 ),
                 "en_mantenimiento": str(
                     host.get("maintenance_status", "0")

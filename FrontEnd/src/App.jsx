@@ -17,6 +17,9 @@ import PlansPage from './ventanas/planes.jsx'
 import UsersPage from './ventanas/usuarios.jsx'
 import SitesPage from './ventanas/sedes.jsx'
 import MetricsPage from './ventanas/metricas.jsx'
+import AuditPage from './ventanas/auditoria.jsx'
+import AIPage from './ventanas/ia.jsx'
+import RiesgoPage from './ventanas/riesgos.jsx'
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -102,6 +105,38 @@ function App() {
       <Route
         path="/metricas"
          element={protectedPage(<MetricsPage />)}
+      />
+      
+      
+      <Route
+        path="/auditoria"
+        element={
+          isAuthenticated ? (
+            <AuditPage />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/riesgos"
+        element={
+          isAuthenticated ? (
+            <RiesgoPage />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/ia"
+        element={
+          isAuthenticated ? (
+            <AIPage />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
       />
 
       <Route

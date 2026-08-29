@@ -1,0 +1,63 @@
+name: plataforma-zabbix
+
+services:
+  zabbix-db:
+    image: postgres:16-alpine
+    container_name: zabbix-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: zabbix
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: ${ZABBIX_DB_PASSWORD}
+    volumes:
+      - zabbix_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U zabbix -d zabbix
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  zabbix-server:
+    image: zabbix/zabbix-server-pgsql:alpine-7.4-latest
+    container_name: zabbix-server
+    restart: unless-stopped
+    environment:
+      DB_SERVER_HOST: zabbix-db
+      POSTGRES_DB: zabbix
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: ${ZABBIX_DB_PASSWORD}
+    ports:
+      - "10051:10051"
+    depends_on:
+      zabbix-db:
+        condition: service_healthy
+
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-pgsql:alpine-7.4-latest
+    container_name: zabbix-web
+    restart: unless-stopped
+    environment:
+      ZBX_SERVER_HOST: zabbix-server
+      DB_SERVER_HOST: zabbix-db
+      POSTGRES_DB: zabbix
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: ${ZABBIX_DB_PASSWORD}
+      PHP_TZ: America/Guatemala
+    ports:
+      - "8080:8080"
+    depends_on:
+      zabbix-db:
+        condition: service_healthy
+      zabbix-server:
+        condition: service_started
+
+  snmp-switch:
+    build:
+      context: ./snmp-simulator
+    container_name: snmp-switch
+    restart: unless-stopped
+
+volumes:
+  zabbix_db_data:

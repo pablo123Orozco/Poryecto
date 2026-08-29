@@ -1,6 +1,5 @@
-"""Rutas para generar y descargar reportes CSV."""
+"""Rutas para generar y descargar reportes Excel."""
 
-import csv
 import re
 from datetime import date, datetime
 from pathlib import Path
@@ -8,6 +7,9 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import FileResponse
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -151,7 +153,7 @@ def convertir_celda(valor: object) -> str:
     return texto
 
 
-def escribir_csv(
+def escribir_excel(
     tipo: str,
     organizacion_id: int,
     ruta_archivo: Path,
@@ -167,21 +169,45 @@ def escribir_csv(
 
     registros = db.scalars(consulta).all()
 
-    with ruta_archivo.open(
-        "w",
-        newline="",
-        encoding="utf-8-sig",
-    ) as archivo:
-        escritor = csv.writer(archivo)
-        escritor.writerow(columnas)
+    libro = Workbook()
+    hoja = libro.active
+    hoja.title = tipo.capitalize()
+    hoja.append(list(columnas))
 
-        for registro in registros:
-            escritor.writerow(
-                [
-                    convertir_celda(getattr(registro, campo))
-                    for campo in columnas
-                ]
-            )
+    for registro in registros:
+        hoja.append(
+            [
+                convertir_celda(getattr(registro, campo))
+                for campo in columnas
+            ]
+        )
+
+    relleno_encabezado = PatternFill(
+        fill_type="solid",
+        fgColor="1F4E78",
+    )
+
+    for celda in hoja[1]:
+        celda.font = Font(color="FFFFFF", bold=True)
+        celda.fill = relleno_encabezado
+        celda.alignment = Alignment(horizontal="center")
+
+    hoja.freeze_panes = "A2"
+    hoja.auto_filter.ref = hoja.dimensions
+
+    for indice, columna in enumerate(
+        hoja.iter_cols(),
+        start=1,
+    ):
+        ancho = max(
+            len(str(celda.value)) if celda.value is not None else 0
+            for celda in columna
+        )
+        hoja.column_dimensions[
+            get_column_letter(indice)
+        ].width = min(ancho + 2, 45)
+
+    libro.save(ruta_archivo)
 
 
 @router.post(
@@ -198,7 +224,7 @@ def generar_reporte(
         DIRECTORIO_REPORTES / str(usuario.organizacion_id)
     )
     ruta_archivo = (
-        directorio_organizacion / f"{uuid4().hex}.csv"
+        directorio_organizacion / f"{uuid4().hex}.xlsx"
     )
 
     try:
@@ -206,7 +232,7 @@ def generar_reporte(
             parents=True,
             exist_ok=True,
         )
-        escribir_csv(
+        escribir_excel(
             datos.tipo,
             usuario.organizacion_id,
             ruta_archivo,
@@ -223,7 +249,7 @@ def generar_reporte(
         generado_por=usuario.id,
         nombre=datos.nombre,
         tipo=datos.tipo,
-        formato="CSV",
+        formato="XLSX",
         ruta_archivo=str(ruta_archivo),
         parametros={},
     )
@@ -301,11 +327,14 @@ def descargar_reporte(
     ).strip("_")
 
     nombre_descarga = (
-        f"{nombre_seguro or 'reporte'}.csv"
+        f"{nombre_seguro or 'reporte'}.xlsx"
     )
 
     return FileResponse(
         path=ruta_archivo,
-        media_type="text/csv",
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
         filename=nombre_descarga,
     )

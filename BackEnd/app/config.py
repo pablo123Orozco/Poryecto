@@ -9,7 +9,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     """Carga y valida las variables de entorno del backend."""
-
+    groq_api_key: str = ""
+    groq_model: str = "openai/gpt-oss-20b"
     app_name: str = "Plataforma de Monitoreo API"
     app_environment: Literal[
         "development",
@@ -36,6 +37,7 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="ignore",
     )
+
 
 
 @lru_cache
