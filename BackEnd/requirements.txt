@@ -6,5 +6,9 @@ pydantic-settings==2.14.2
 PyJWT==2.13.0
 pwdlib[argon2]==0.3.0
 email-validator==2.3.0
+<<<<<<< HEAD
 httpx==0.28.1
 groq==1.6.0
+=======
+openpyxl==3.1.5
+>>>>>>> 7b5c3f3 (Agregar dependencias de reportes e inteligencia artificial)
